@@ -53,7 +53,7 @@ export default class MyPlugin extends Plugin {
 			);
 			this.app.vault.create(
 				"CloudAtlas/example/user.md",
-				"What is Cloud Atlas?\n\n[[additional context]]"
+				"What is Cloud Atlas? [[additional context]]\n"
 			);
 			this.app.vault.create(
 				"CloudAtlas/example/additional context.md",
@@ -96,15 +96,24 @@ export default class MyPlugin extends Plugin {
 
 				for (const property in activeResolvedLinks) {
 					try {
-						user += await this.app.vault.read(
+						const more = await this.app.vault.read(
 							this.app.vault.getAbstractFileByPath(
 								property
 							) as TFile
 						);
+						const additional_name = property
+							.split("/")
+							.slice(-1)[0]
+							.split(".")[0];
+						const placeholder_string =
+							"[[" + additional_name + "]]";
+						user = user.replace(placeholder_string, more);
 					} catch (e) {
 						console.log(e);
 					}
 				}
+
+				// console.log(user);
 
 				const systemPath =
 					noteFile.path.split("/").slice(0, -1).join("/") +
@@ -130,7 +139,6 @@ export default class MyPlugin extends Plugin {
 						}
 					);
 					const respJson = await response.json();
-
 					// console.log(respJson);
 					editor.replaceSelection("\n" + respJson);
 				} catch (e) {

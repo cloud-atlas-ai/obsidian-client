@@ -19,6 +19,7 @@
     ]
   },
   "include": [
-    "**/*.ts"
+    "stc/**/*.ts",
+    "types.d.ts"
   ]
 }

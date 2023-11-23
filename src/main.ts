@@ -20,6 +20,24 @@ const DEFAULT_SETTINGS: MyPluginSettings = {
 	apiKey: "",
 };
 
+let noticeTimeout;
+
+const animateNotice = (notice: Notice) => {
+	let message = notice.noticeEl.innerText;
+	// console.log(message);
+	const dots = message.split(" ")[message.split(" ").length - 1];
+	if (dots.length == 1) {
+		message = message.replace(" .", " ..");
+	} else if (dots.length == 2) {
+		message = message.replace(" ..", " ...");
+	} else if (dots.length == 3) {
+		message = message.replace(" ...", " .");
+	}
+	notice.setMessage(message);
+	noticeTimeout = setTimeout(() => animateNotice(notice), 500);
+	// console.log(message);
+};
+
 export default class MyPlugin extends Plugin {
 	settings: MyPluginSettings;
 
@@ -35,10 +53,14 @@ export default class MyPlugin extends Plugin {
 			);
 			this.app.vault.create(
 				"CloudAtlas/example/user.md",
-				"What is Cloud Atlas?"
+				"What is Cloud Atlas?\n\n[[additional context]]"
+			);
+			this.app.vault.create(
+				"CloudAtlas/example/additional context.md",
+				"I mean the novel."
 			);
 
-			new Notice("Created CloudAtlas folder");
+			// new Notice("Created CloudAtlas folder");
 		} catch (e) {
 			console.log("Could not create folder, it likely already exists");
 		}
@@ -68,26 +90,56 @@ export default class MyPlugin extends Plugin {
 				if (!noteFile) {
 					return;
 				}
-				const user = await this.app.vault.read(noteFile);
+				let user = await this.app.vault.read(noteFile);
+				const activeResolvedLinks =
+					this.app.metadataCache.resolvedLinks[noteFile.path];
+
+				for (const property in activeResolvedLinks) {
+					try {
+						user += await this.app.vault.read(
+							this.app.vault.getAbstractFileByPath(
+								property
+							) as TFile
+						);
+					} catch (e) {
+						console.log(e);
+					}
+				}
+
 				const systemPath =
 					noteFile.path.split("/").slice(0, -1).join("/") +
 					"/system.md";
 				const systemFile =
 					this.app.vault.getAbstractFileByPath(systemPath);
-				const system = systemFile ? await this.app.vault.read(systemFile as TFile) : "You are a helpful assistant.";
+				const system = systemFile
+					? await this.app.vault.read(systemFile as TFile)
+					: "You are a helpful assistant.";
 				const data = { user, system };
 				// console.log({ user, system });
-				new Notice("Working on it...");
-				const response = await fetch("https://api.cloud-atlas.ai/run", {
-					headers: {
-						"x-api-key": this.settings.apiKey,
-					},
-					method: "POST",
-					body: JSON.stringify(data),
-				});
-				const respJson = await response.json();
-				console.log(respJson);
-				editor.replaceSelection(respJson);
+				const notice = new Notice("Working on it ...", 0);
+				animateNotice(notice);
+				try {
+					const response = await fetch(
+						"https://api.cloud-atlas.ai/run",
+						{
+							headers: {
+								"x-api-key": this.settings.apiKey,
+							},
+							method: "POST",
+							body: JSON.stringify(data),
+						}
+					);
+					const respJson = await response.json();
+
+					// console.log(respJson);
+					editor.replaceSelection("\n" + respJson);
+				} catch (e) {
+					console.log(e);
+					notice.hide();
+					new Notice("Something went wrong. Check the console.");
+				}
+				notice.hide();
+				clearTimeout(noticeTimeout);
 			},
 		});
 		// This adds a complex command that can check whether the current state of the app allows execution of the command

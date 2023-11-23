@@ -20,7 +20,7 @@ const DEFAULT_SETTINGS: MyPluginSettings = {
 	apiKey: "",
 };
 
-let noticeTimeout;
+let noticeTimeout: NodeJS.Timeout;
 
 const animateNotice = (notice: Notice) => {
 	let message = notice.noticeEl.innerText;

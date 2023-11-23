@@ -19,7 +19,7 @@
     ]
   },
   "include": [
-    "stc/**/*.ts",
+    "src/**/*.ts",
     "types.d.ts"
   ]
 }

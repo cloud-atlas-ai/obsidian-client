@@ -124,7 +124,7 @@ export default class MyPlugin extends Plugin {
 					? await this.app.vault.read(systemFile as TFile)
 					: "You are a helpful assistant.";
 				const data = { user, system };
-				// console.log({ user, system });
+				console.debug( { user, system });
 				const notice = new Notice("Working on it ...", 0);
 				animateNotice(notice);
 				try {

@@ -133,13 +133,13 @@ export default class MyPlugin extends Plugin {
 					"/system.md";
 				const systemFile =
 					this.app.vault.getAbstractFileByPath(systemPath);
-				let systemInstructions = systemFile
+				let system = systemFile
 					? await this.app.vault.read(systemFile as TFile)
 					: "You are a helpful assistant.";
 
-				systemInstructions += "\n\nUse the content in 'input' as the main context, consider the 'additional_context' map for related information, and respond based on the instructions in 'user_prompt'. Assist the user by synthesizing information from these elements into coherent and useful insights or actions.";
+				system += "\n\nUse the content in 'input' as the main context, consider the 'additional_context' map for related information, and respond based on the instructions in 'user_prompt'. Assist the user by synthesizing information from these elements into coherent and useful insights or actions.";
 
-				const data = { user, systemInstructions };
+				const data = { user, system };
 
 				console.debug("data: ", data);
 

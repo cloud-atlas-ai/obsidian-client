@@ -1,4 +1,4 @@
-	import {
+import {
 	App,
 	Editor,
 	MarkdownView,
@@ -38,31 +38,56 @@ const animateNotice = (notice: Notice) => {
 export default class CloudAtlasPlugin extends Plugin {
 	settings: CloudAtlasPluginSettings;
 
+	createFolder = async (path: string) => {
+		try {
+			await this.app.vault.createFolder("CloudAtlas");
+		} catch (e) {
+			console.debug(e);
+		}
+	};
+
+	create = async (path: string, content: string) => {
+		try {
+			await this.app.vault.create(path, content);
+		} catch (e) {
+			console.debug(e);
+		}
+	};
+
 	async onload() {
 		await this.loadSettings();
 
 		try {
-			this.app.vault.createFolder("CloudAtlas");
-			this.app.vault.createFolder("CloudAtlas/example");
-			this.app.vault.create(
+			await this.createFolder("CloudAtlas");
+			await this.createFolder("CloudAtlas/example");
+			await this.create(
 				"CloudAtlas/example/system.md",
 				"You are a helpful assistant."
 			);
-			this.app.vault.create(
+
+			await this.create(
 				"CloudAtlas/example/user.md",
 				"What is Cloud Atlas? [[additional context]]\n"
 			);
-			this.app.vault.create(
+			await this.create("CloudAtlas/example/user_prompt.md", "");
+			await this.create(
 				"CloudAtlas/example/additional context.md",
 				"I mean the novel."
 			);
+			await this.create(
+				"CloudAtlas/example/backlink.md",
+				"[[user]]\n\nActually write about the movie as well, but prefix the move writeup with ---"
+			);
 
-			new Notice("Created CloudAtlas folder with an example flow. Please configure the plugin to use it.");
+			new Notice(
+				"Created CloudAtlas folder with an example flow. Please configure the plugin to use it."
+			);
 		} catch (e) {
 			console.log("Could not create folder, it likely already exists");
 		}
 
-		const cloudAtlasFolder = this.app.vault.getAbstractFileByPath("CloudAtlas");
+		const cloudAtlasFolder =
+			this.app.vault.getAbstractFileByPath("CloudAtlas");
 		if (cloudAtlasFolder instanceof TFolder) {
 			cloudAtlasFolder.children.forEach((subfolder: TFolder) => {
 				return this.addNewCommand(this, subfolder.name);
@@ -70,7 +95,7 @@ export default class CloudAtlasPlugin extends Plugin {
 		}
 
 		this.addSettingTab(new CloudAtlasGlobalSettingsTab(this.app, this));
-		}
+	}
 
 	private addNewCommand(plugin: CloudAtlasPlugin, flow: string): void {
 		this.addCommand({
@@ -83,12 +108,12 @@ export default class CloudAtlasPlugin extends Plugin {
 				}
 				// Read the content of the current note file.
 				let noteContent = await this.app.vault.read(noteFile);
-				const currentFolderPath = noteFile.path.split("/").slice(0, -1).join("/");
 
 				const userPromptPath = `CloudAtlas/${flow}/user_prompt.md`;
 				const systemPath = `CloudAtlas/${flow}/system.md`;
 
-				const userPromptFile = this.app.vault.getAbstractFileByPath(userPromptPath);
+				const userPromptFile =
+					this.app.vault.getAbstractFileByPath(userPromptPath);
 				const userPrompt = userPromptFile
 					? await this.app.vault.read(userPromptFile as TFile)
 					: "";
@@ -101,17 +126,37 @@ export default class CloudAtlasPlugin extends Plugin {
 				} = {
 					user_prompt: userPrompt,
 					input: noteContent,
-					additional_context: {}
+					additional_context: {},
 				};
 
 				// Get resolved links from the current note file.
-				const activeResolvedLinks = this.app.metadataCache.resolvedLinks[noteFile.path];
+				const activeResolvedLinks = await this.app.metadataCache
+					.resolvedLinks[noteFile.path];
+
+				const activeBacklinks =
+					await app.metadataCache.getBacklinksForFile(noteFile);
+				activeBacklinks.keys().forEach(async (key: string) => {
+					try {
+						const linkedNoteContent = await this.app.vault.read(
+							this.app.vault.getAbstractFileByPath(key) as TFile
+						);
+
+						// Add the linked note content to the additional_context map.
+						user.additional_context[key] = linkedNoteContent;
+					} catch (e) {
+						console.log(e);
+					}
+				});
+
+				// console.log(activeBacklinks.data);
 
 				// Process each resolved link.
 				for (const property in activeResolvedLinks) {
 					try {
 						const linkedNoteContent = await this.app.vault.read(
-							this.app.vault.getAbstractFileByPath(property) as TFile
+							this.app.vault.getAbstractFileByPath(
+								property
+							) as TFile
 						);
 
 						// Add the linked note content to the additional_context map.
@@ -127,13 +172,15 @@ export default class CloudAtlasPlugin extends Plugin {
 					? await this.app.vault.read(systemFile as TFile)
 					: "You are a helpful assistant.";
 
-				system += "\n\nUse the content in 'input' as the main context, consider the 'additional_context' map for related information, and respond based on the instructions in 'user_prompt'. Assist the user by synthesizing information from these elements into coherent and useful insights or actions.";
+				system +=
+					"\n\nUse the content in 'input' as the main context, consider the 'additional_context' map for related information, and respond based on the instructions in 'user_prompt'. Assist the user by synthesizing information from these elements into coherent and useful insights or actions.";
 
 				const data = { user: JSON.stringify(user), system };
 
 				console.debug("data: ", data);
 
-				const notice = new Notice(`Running ${flow} Flow...`, 0);
+				const notice = new Notice(`Running ${flow} Flow ...`, 0);
+				animateNotice(notice);
 				try {
 					const response = await fetch(
 						"https://api.cloud-atlas.ai/run",
@@ -162,16 +209,16 @@ export default class CloudAtlasPlugin extends Plugin {
 	onunload() {}
 
 	async loadSettings() {
-			this.settings = Object.assign(
-				{},
-				DEFAULT_SETTINGS,
-				await this.loadData()
-			);
-		}
+		this.settings = Object.assign(
+			{},
+			DEFAULT_SETTINGS,
+			await this.loadData()
+		);
+	}
 
 	async saveSettings() {
-			await this.saveData(this.settings);
-		}
+		await this.saveData(this.settings);
+	}
 }
 
 // TODO: If we only have one tab, we shouldn't have multiple tabs or this will get rejected when we submit it to the store.

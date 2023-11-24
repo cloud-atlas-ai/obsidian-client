@@ -12,7 +12,9 @@ The Obsidian plugin aspect of Cloud Atlas is open source, while the server compo
 
 ## Planning Not Plans framework support
 
-Cloud Atlas use cases are focused on implementing the [Planning not Plans framework](https://muness.com/posts/planning-not-plans/) for productivity. The framework is based on the idea that the process of planning is more important than the plan itself. Cloud Atlas helps you implement this framework by providing a way to automatically process your notes and get contextual responses. The plugin ships with curated flows that are designed to help you implement the framework.
+Cloud Atlas use cases are focused on implementing the [Planning not Plans framework](https://muness.com/posts/planning-not-plans/) for productivity. The framework is based on the idea that the process of planning is more important than the plan itself.
+
+Cloud Atlas helps you implement this framework by providing a way to automatically process your notes and get contextual responses. The plugin ships with curated flows that are designed to help you implement the framework.
 
 ## What is a Flow?
 
@@ -29,8 +31,8 @@ Each flow is like having a personal assistant within Obsidian, helping you manag
 
 - **Instructions and Prompt**: The plugin reads the `system.md` and `user_prompt.md` files from the relevant subdirectory. The content of `system.md` acts as the instructions or context for the API, and `user_prompt.md` provides a specific prompt or question.
 - **Additional Context**: The plugin analyzes the active note and includes any additional context linked within the note. This includes content from linked Obsidian notes, which is sent as part of the API request.
-- **API Interaction**: The content of the active note, along with the system instructions, user prompt, and additional context, is sent to an external API. The API processes this information and returns a response.
-- **Appending API Response**: The response from the API is then automatically appended to the end of the active note, providing insights, answers, or content based on the provided instructions and prompt.
+- **API Interaction**: The content of the active note, along with the system instructions, user prompt, and additional context, is sent to an external API. The API enriches and otherwise processes this and returns a response.
+- **Appending API Response**: The response from the API is then automatically appended to the end of the active note, providing insights, answers, or content based on the provided instructions and the serverside processing.
 
 ## Usage
 
@@ -75,7 +77,9 @@ To edit an existing flow, navigate to its subdirectory in `CloudAtlas`. Modify t
 
 ## Manually installing the plugin
 
-- Copy over `main.js`, `styles.css`, `manifest.json` to your vault `VaultFolder/.obsidian/plugins/your-plugin-id/`.
+- Download the latest release from the releases page.
+- Unzip it and copy the directory to your vault `<vault>/.obsidian/plugins/cloud-atlas/`.
+- Reload Obsidian.
 
 ## Development
 

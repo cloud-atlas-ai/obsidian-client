@@ -9,6 +9,7 @@ import {
 	Setting,
 	TFile,
 } from "obsidian";
+import { stringify } from "querystring";
 
 // Remember to rename these classes and interfaces!
 
@@ -90,41 +91,58 @@ export default class MyPlugin extends Plugin {
 				if (!noteFile) {
 					return;
 				}
-				let user = await this.app.vault.read(noteFile);
-				const activeResolvedLinks =
-					this.app.metadataCache.resolvedLinks[noteFile.path];
+				// Read the content of the current note file.
+				let noteContent = await this.app.vault.read(noteFile);
+				const currentFolderPath = noteFile.path.split("/").slice(0, -1).join("/");
 
+				const userPromptPath = currentFolderPath + "/user_prompt.md";
+				const userPromptFile = this.app.vault.getAbstractFileByPath(userPromptPath);
+				const userPrompt = userPromptFile
+					? await this.app.vault.read(userPromptFile as TFile)
+					: "";
+
+				// Initialize the user object with the current page content.
+				let user: {
+					user_prompt: string;
+					input: string;
+					additional_context: { [key: string]: string };
+				} = {
+					user_prompt: userPrompt,
+					input: noteContent,
+					additional_context: {}
+				};
+
+				// Get resolved links from the current note file.
+				const activeResolvedLinks = this.app.metadataCache.resolvedLinks[noteFile.path];
+
+				// Process each resolved link.
 				for (const property in activeResolvedLinks) {
 					try {
-						const more = await this.app.vault.read(
-							this.app.vault.getAbstractFileByPath(
-								property
-							) as TFile
+						const linkedNoteContent = await this.app.vault.read(
+							this.app.vault.getAbstractFileByPath(property) as TFile
 						);
-						const additional_name = property
-							.split("/")
-							.slice(-1)[0]
-							.split(".")[0];
-						const placeholder_string =
-							"[[" + additional_name + "]]";
-						user = user.replace(placeholder_string, more);
+
+						// Add the linked note content to the additional_context map.
+						user.additional_context[property] = linkedNoteContent;
 					} catch (e) {
 						console.log(e);
 					}
 				}
-
-				// console.log(user);
-
 				const systemPath =
 					noteFile.path.split("/").slice(0, -1).join("/") +
 					"/system.md";
 				const systemFile =
 					this.app.vault.getAbstractFileByPath(systemPath);
-				const system = systemFile
+				let system = systemFile
 					? await this.app.vault.read(systemFile as TFile)
 					: "You are a helpful assistant.";
-				const data = { user, system };
-				console.debug( { user, system });
+
+				system += "\n\nUse the content in 'input' as the main context, consider the 'additional_context' map for related information, and respond based on the instructions in 'user_prompt'. Assist the user by synthesizing information from these elements into coherent and useful insights or actions.";
+
+				const data = { user: JSON.stringify(user), system };
+
+				console.debug("data: ", data);
+
 				const notice = new Notice("Working on it ...", 0);
 				animateNotice(notice);
 				try {
@@ -139,7 +157,7 @@ export default class MyPlugin extends Plugin {
 						}
 					);
 					const respJson = await response.json();
-					// console.log(respJson);
+					console.debug("response: ", respJson);
 					editor.replaceSelection("\n" + respJson);
 				} catch (e) {
 					console.log(e);
@@ -186,7 +204,7 @@ export default class MyPlugin extends Plugin {
 		// );
 	}
 
-	onunload() {}
+	onunload() { }
 
 	async loadSettings() {
 		this.settings = Object.assign(

@@ -88,11 +88,12 @@ export default class CloudAtlasPlugin extends Plugin {
 
 		this.addCommand({
 			id: 'generate-flow-commands',
-			name: 'Generate Commands for Cloud Atlas Flows',
+			name: 'Regenerate Commands for Cloud Atlas Flows',
 			callback: () => this.generateFlowCommands(),
 		});
 
 		this.generateFlowCommands();
+
 		this.addSettingTab(new CloudAtlasGlobalSettingsTab(this.app, this));
 	}
 	generateFlowCommands(): any {

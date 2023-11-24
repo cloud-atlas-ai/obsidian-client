@@ -86,15 +86,23 @@ export default class CloudAtlasPlugin extends Plugin {
 			console.log("Could not create folder, it likely already exists");
 		}
 
+		this.addCommand({
+			id: 'generate-flow-commands',
+			name: 'Generate Commands for Cloud Atlas Flows',
+			callback: () => this.generateFlowCommands(),
+		});
+
+		this.generateFlowCommands();
+		this.addSettingTab(new CloudAtlasGlobalSettingsTab(this.app, this));
+	}
+	generateFlowCommands(): any {
 		const cloudAtlasFolder =
 			this.app.vault.getAbstractFileByPath("CloudAtlas");
 		if (cloudAtlasFolder instanceof TFolder) {
 			cloudAtlasFolder.children.forEach((subfolder: TFolder) => {
-				return this.addNewCommand(this, subfolder.name);
+				this.addNewCommand(this, subfolder.name);
 			});
 		}
-
-		this.addSettingTab(new CloudAtlasGlobalSettingsTab(this.app, this));
 	}
 
 	private addNewCommand(plugin: CloudAtlasPlugin, flow: string): void {
@@ -206,7 +214,7 @@ export default class CloudAtlasPlugin extends Plugin {
 		});
 	}
 
-	onunload() {}
+	onunload() { }
 
 	async loadSettings() {
 		this.settings = Object.assign(

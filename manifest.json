@@ -1,11 +1,11 @@
 {
-	"id": "cloud-atlas",
-	"name": "Cloud Atlas",
-	"version": "0.0.1",
-	"minAppVersion": "0.15.0",
-	"description": "Interoperability between Obsidian and Cloud Atlas",
-	"author": "Cloud Atlas",
-	"authorUrl": "tbd",
-	"fundingUrl": "tbd",
-	"isDesktopOnly": false
+  "id": "cloud-atlas",
+  "name": "Cloud Atlas",
+  "version": "0.0.1",
+  "minAppVersion": "1.4.16",
+  "description": "Interoperability between Obsidian and Cloud Atlas",
+  "author": "Cloud Atlas",
+  "authorUrl": "tbd",
+  "fundingUrl": "tbd",
+  "isDesktopOnly": false
 }

@@ -1,23 +1,21 @@
-import {
+	import {
 	App,
 	Editor,
 	MarkdownView,
-	// Modal,
 	Notice,
 	Plugin,
 	PluginSettingTab,
 	Setting,
 	TFile,
+	TFolder,
 } from "obsidian";
 import { stringify } from "querystring";
 
-// Remember to rename these classes and interfaces!
-
-interface MyPluginSettings {
+interface CloudAtlasPluginSettings {
 	apiKey: string;
 }
 
-const DEFAULT_SETTINGS: MyPluginSettings = {
+const DEFAULT_SETTINGS: CloudAtlasPluginSettings = {
 	apiKey: "",
 };
 
@@ -25,7 +23,6 @@ let noticeTimeout: NodeJS.Timeout;
 
 const animateNotice = (notice: Notice) => {
 	let message = notice.noticeEl.innerText;
-	// console.log(message);
 	const dots = message.split(" ")[message.split(" ").length - 1];
 	if (dots.length == 1) {
 		message = message.replace(" .", " ..");
@@ -36,11 +33,10 @@ const animateNotice = (notice: Notice) => {
 	}
 	notice.setMessage(message);
 	noticeTimeout = setTimeout(() => animateNotice(notice), 500);
-	// console.log(message);
 };
 
-export default class MyPlugin extends Plugin {
-	settings: MyPluginSettings;
+export default class CloudAtlasPlugin extends Plugin {
+	settings: CloudAtlasPluginSettings;
 
 	async onload() {
 		await this.loadSettings();
@@ -61,31 +57,25 @@ export default class MyPlugin extends Plugin {
 				"I mean the novel."
 			);
 
-			// new Notice("Created CloudAtlas folder");
+			new Notice("Created CloudAtlas folder with an example flow. Please configure the plugin to use it.");
 		} catch (e) {
 			console.log("Could not create folder, it likely already exists");
 		}
 
-		// This creates an icon in the left ribbon.
-		// const ribbonIconEl = this.addRibbonIcon(
-		// 	"dice",
-		// 	"Sample Plugin",
-		// 	(evt: MouseEvent) => {
-		// 		// Called when the user clicks the icon.
-		// 		new Notice("This is a notice!");
-		// 	}
-		// );
-		// Perform additional things with the ribbon
-		// ribbonIconEl.addClass("my-plugin-ribbon-class");
+		const cloudAtlasFolder = this.app.vault.getAbstractFileByPath("CloudAtlas");
+		if (cloudAtlasFolder instanceof TFolder) {
+			cloudAtlasFolder.children.forEach((subfolder: TFolder) => {
+				return this.addNewCommand(this, subfolder.name);
+			});
+		}
 
-		// This adds a status bar item to the bottom of the app. Does not work on mobile apps.
-		// const statusBarItemEl = this.addStatusBarItem();
-		// statusBarItemEl.setText("Status Bar Text");
+		this.addSettingTab(new CloudAtlasGlobalSettingsTab(this.app, this));
+		}
 
-		// This adds an editor command that can perform some operation on the current editor instance
+	private addNewCommand(plugin: CloudAtlasPlugin, flow: string): void {
 		this.addCommand({
-			id: "run-flow",
-			name: "Run Flow",
+			id: `run-flow-${flow}`,
+			name: `Run ${flow} Flow`,
 			editorCallback: async (editor: Editor, view: MarkdownView) => {
 				const noteFile = this.app.workspace.getActiveFile();
 				if (!noteFile) {
@@ -95,7 +85,9 @@ export default class MyPlugin extends Plugin {
 				let noteContent = await this.app.vault.read(noteFile);
 				const currentFolderPath = noteFile.path.split("/").slice(0, -1).join("/");
 
-				const userPromptPath = currentFolderPath + "/user_prompt.md";
+				const userPromptPath = `CloudAtlas/${flow}/user_prompt.md`;
+				const systemPath = `CloudAtlas/${flow}/system.md`;
+
 				const userPromptFile = this.app.vault.getAbstractFileByPath(userPromptPath);
 				const userPrompt = userPromptFile
 					? await this.app.vault.read(userPromptFile as TFile)
@@ -128,9 +120,7 @@ export default class MyPlugin extends Plugin {
 						console.log(e);
 					}
 				}
-				const systemPath =
-					noteFile.path.split("/").slice(0, -1).join("/") +
-					"/system.md";
+
 				const systemFile =
 					this.app.vault.getAbstractFileByPath(systemPath);
 				let system = systemFile
@@ -143,8 +133,7 @@ export default class MyPlugin extends Plugin {
 
 				console.debug("data: ", data);
 
-				const notice = new Notice("Working on it ...", 0);
-				animateNotice(notice);
+				const notice = new Notice(`Running ${flow} Flow...`, 0);
 				try {
 					const response = await fetch(
 						"https://api.cloud-atlas.ai/run",
@@ -168,77 +157,28 @@ export default class MyPlugin extends Plugin {
 				clearTimeout(noticeTimeout);
 			},
 		});
-		// This adds a complex command that can check whether the current state of the app allows execution of the command
-		// this.addCommand({
-		// 	id: "open-sample-modal-complex",
-		// 	name: "Open sample modal (complex)",
-		// 	checkCallback: (checking: boolean) => {
-		// 		// Conditions to check
-		// 		const markdownView =
-		// 			this.app.workspace.getActiveViewOfType(MarkdownView);
-		// 		if (markdownView) {
-		// 			// If checking is true, we're simply "checking" if the command can be run.
-		// 			// If checking is false, then we want to actually perform the operation.
-		// 			if (!checking) {
-		// 				new SampleModal(this.app).open();
-		// 			}
-
-		// 			// This command will only show up in Command Palette when the check function returns true
-		// 			return true;
-		// 		}
-		// 	},
-		// });
-
-		// This adds a settings tab so the user can configure various aspects of the plugin
-		this.addSettingTab(new SampleSettingTab(this.app, this));
-
-		// If the plugin hooks up any global DOM events (on parts of the app that doesn't belong to this plugin)
-		// Using this function will automatically remove the event listener when this plugin is disabled.
-		// this.registerDomEvent(document, "click", (evt: MouseEvent) => {
-		// 	console.log("click", evt);
-		// });
-
-		// When registering intervals, this function will automatically clear the interval when the plugin is disabled.
-		// this.registerInterval(
-		// 	window.setInterval(() => console.log("setInterval"), 5 * 60 * 1000)
-		// );
 	}
 
-	onunload() { }
+	onunload() {}
 
 	async loadSettings() {
-		this.settings = Object.assign(
-			{},
-			DEFAULT_SETTINGS,
-			await this.loadData()
-		);
-	}
+			this.settings = Object.assign(
+				{},
+				DEFAULT_SETTINGS,
+				await this.loadData()
+			);
+		}
 
 	async saveSettings() {
-		await this.saveData(this.settings);
-	}
+			await this.saveData(this.settings);
+		}
 }
 
-// class SampleModal extends Modal {
-// 	constructor(app: App) {
-// 		super(app);
-// 	}
+// TODO: If we only have one tab, we shouldn't have multiple tabs or this will get rejected when we submit it to the store.
+class CloudAtlasGlobalSettingsTab extends PluginSettingTab {
+	plugin: CloudAtlasPlugin;
 
-// 	onOpen() {
-// 		const { contentEl } = this;
-// 		contentEl.setText("Woah!");
-// 	}
-
-// 	onClose() {
-// 		const { contentEl } = this;
-// 		contentEl.empty();
-// 	}
-// }
-
-class SampleSettingTab extends PluginSettingTab {
-	plugin: MyPlugin;
-
-	constructor(app: App, plugin: MyPlugin) {
+	constructor(app: App, plugin: CloudAtlasPlugin) {
 		super(app, plugin);
 		this.plugin = plugin;
 	}

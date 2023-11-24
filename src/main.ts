@@ -8,6 +8,7 @@ import {
 	PluginSettingTab,
 	Setting,
 	TFile,
+	TFolder,
 } from "obsidian";
 import { stringify } from "querystring";
 
@@ -66,27 +67,15 @@ export default class MyPlugin extends Plugin {
 			console.log("Could not create folder, it likely already exists");
 		}
 
-		// This creates an icon in the left ribbon.
-		// const ribbonIconEl = this.addRibbonIcon(
-		// 	"dice",
-		// 	"Sample Plugin",
-		// 	(evt: MouseEvent) => {
-		// 		// Called when the user clicks the icon.
-		// 		new Notice("This is a notice!");
-		// 	}
-		// );
-		// Perform additional things with the ribbon
-		// ribbonIconEl.addClass("my-plugin-ribbon-class");
-
-		// This adds a status bar item to the bottom of the app. Does not work on mobile apps.
-		// const statusBarItemEl = this.addStatusBarItem();
-		// statusBarItemEl.setText("Status Bar Text");
-
-		// This adds an editor command that can perform some operation on the current editor instance
-		this.addCommand({
-			id: "run-flow",
-			name: "Run Flow",
-			editorCallback: async (editor: Editor, view: MarkdownView) => {
+		const cloudAtlasFolder = this.app.vault.getAbstractFileByPath("CloudAtlas");
+    if (cloudAtlasFolder && cloudAtlasFolder instanceof TFolder) {
+        cloudAtlasFolder.children.forEach(subfolder => {
+            if (subfolder instanceof TFolder) {
+                // Create a command for each subdirectory
+                this.addCommand({
+                    id: `run-flow-${subfolder.name}`,
+                    name: `Run ${subfolder.name} Flow`,
+                    editorCallback: async (editor: Editor, view: MarkdownView) => {
 				const noteFile = this.app.workspace.getActiveFile();
 				if (!noteFile) {
 					return;
@@ -95,7 +84,9 @@ export default class MyPlugin extends Plugin {
 				let noteContent = await this.app.vault.read(noteFile);
 				const currentFolderPath = noteFile.path.split("/").slice(0, -1).join("/");
 
-				const userPromptPath = currentFolderPath + "/user_prompt.md";
+				const userPromptPath = `CloudAtlas/${subfolder.name}/user_prompt.md`;
+				const systemPath = `CloudAtlas/${subfolder.name}/system.md`;
+
 				const userPromptFile = this.app.vault.getAbstractFileByPath(userPromptPath);
 				const userPrompt = userPromptFile
 					? await this.app.vault.read(userPromptFile as TFile)
@@ -128,9 +119,7 @@ export default class MyPlugin extends Plugin {
 						console.log(e);
 					}
 				}
-				const systemPath =
-					noteFile.path.split("/").slice(0, -1).join("/") +
-					"/system.md";
+
 				const systemFile =
 					this.app.vault.getAbstractFileByPath(systemPath);
 				let system = systemFile
@@ -143,8 +132,7 @@ export default class MyPlugin extends Plugin {
 
 				console.debug("data: ", data);
 
-				const notice = new Notice("Working on it ...", 0);
-				animateNotice(notice);
+				const notice = new Notice(`Running ${subfolder.name} Flow...`, 0);
 				try {
 					const response = await fetch(
 						"https://api.cloud-atlas.ai/run",

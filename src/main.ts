@@ -139,7 +139,7 @@ export default class MyPlugin extends Plugin {
 
 				system += "\n\nUse the content in 'input' as the main context, consider the 'additional_context' map for related information, and respond based on the instructions in 'user_prompt'. Assist the user by synthesizing information from these elements into coherent and useful insights or actions.";
 
-				const data = { user, system };
+				const data = { user: JSON.stringify(user), system };
 
 				console.debug("data: ", data);
 

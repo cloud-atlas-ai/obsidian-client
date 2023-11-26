@@ -9,12 +9,36 @@ import {
 	TFile,
 	TFolder,
 } from "obsidian";
+import {
+	CANVAS_CONTENT,
+	CanvasContent,
+	FileNode,
+	findNodeEdges,
+	findInputNode,
+	Node,
+	TextNode,
+	filterNodesByType,
+	NodeType,
+} from "./canvas";
+
+const ADDITIONAL_SYSTEM = "Use the content in 'input' as the main context, consider the 'additional_context' map for related information, and respond based on the instructions in 'user_prompt'. Assist the user by synthesizing information from these elements into coherent and useful insights or actions."
 
 interface CloudAtlasPluginSettings {
 	apiKey: string;
 	previewMode: boolean;
 	entityRecognition: boolean;
 	generateEmbeddings: boolean;
+}
+
+interface User {
+	user_prompt: string;
+	input: string;
+	additional_context: { [key: string]: string };
+}
+
+interface Payload {
+	user: string;
+	system: string;
 }
 
 const DEFAULT_SETTINGS: CloudAtlasPluginSettings = {
@@ -43,6 +67,32 @@ const animateNotice = (notice: Notice) => {
 export default class CloudAtlasPlugin extends Plugin {
 	settings: CloudAtlasPluginSettings;
 
+	getNodeContent = async (node: Node) => {
+		if (node.type == "text") {
+			return this.getTextNodeContent(node as TextNode);
+		} else if (node.type == "file") {
+			return this.getFileNodeContent(node as FileNode);
+		}
+	};
+
+	getTextNodeContent = async (node: TextNode) => {
+		return node.text;
+	};
+
+	getFileNodeContent = async (node: FileNode) => {
+		const nodeFile = this.app.vault.getAbstractFileByPath(node.file);
+		const nodeContent = await this.app.vault.read(nodeFile as TFile);
+		return nodeContent;
+	};
+
+	createFlow = async (flow: string) => {
+		await this.createFolder(`CloudAtlas/Flows}`);
+		await this.create(
+			`CloudAtlas/Flows/${flow}.canvas`,
+			JSON.stringify(CANVAS_CONTENT)
+		);
+	};
+
 	createFolder = async (path: string) => {
 		try {
 			await this.app.vault.createFolder("CloudAtlas");
@@ -57,6 +107,68 @@ export default class CloudAtlasPlugin extends Plugin {
 		} catch (e) {
 			console.debug(e);
 		}
+	};
+
+	runCanvasFlow = async (canvasFile: TFile): Promise<Payload | undefined> => {
+		const canvasContentString = await this.app.vault.read(canvasFile);
+		const canvasContent: CanvasContent = JSON.parse(canvasContentString);
+		const inputNodes = findInputNode(canvasContent.nodes);
+		if (!inputNodes) {
+			new Notice("Could not find User(Red) node.");
+			return;
+		} else if (inputNodes.length > 1) {
+			new Notice("Found multiple User(Red) nodes, only one is allowed.");
+			return;
+		}
+		const inputNode = inputNodes[0];
+		const inputNodeEdges = findNodeEdges(inputNode, canvasContent.edges);
+		const connectedNodeIds = inputNodeEdges.map((edge) => edge.fromNode);
+		const connectedNodes = canvasContent.nodes.filter((node) => {
+			return connectedNodeIds.includes(node.id);
+		});
+		// console.log(inputNode);
+		// console.log(inputNodeEdges);
+		// console.log(connectedNodes);
+		const input = await this.getNodeContent(inputNode);
+		const user_prompt = [];
+
+		for (const node of filterNodesByType(
+			NodeType.UserPrompt,
+			connectedNodes
+		)) {
+			const content = await this.getNodeContent(node);
+			if (content) {
+				user_prompt.push(content);
+			}
+		}
+
+		const system_instructions = [];
+
+		for (const node of filterNodesByType(NodeType.System, connectedNodes)) {
+			const content = await this.getNodeContent(node);
+			if (content) {
+				system_instructions.push(content);
+			}
+		}
+
+		system_instructions.push(ADDITIONAL_SYSTEM);
+
+		const additional_context = {};
+		await filterNodesByType(NodeType.Context, connectedNodes).forEach(
+			async (node) => {
+				additional_context[node.id] = await this.getNodeContent(node);
+			}
+		);
+		const user: User = {
+			user_prompt: user_prompt.join("\n"),
+			input: input ? input : "",
+			additional_context,
+		};
+
+		return {
+			user: JSON.stringify(user),
+			system: system_instructions.join("\n"),
+		};
 	};
 
 	async onload() {
@@ -84,6 +196,8 @@ export default class CloudAtlasPlugin extends Plugin {
 				"[[user]]\n\nActually write about the movie as well, but prefix the movie writeup with"
 			);
 
+			await this.createFlow("Example");
+
 			new Notice(
 				"Created CloudAtlas folder with an example flow. Please configure the plugin to use it."
 			);
@@ -103,6 +217,44 @@ export default class CloudAtlasPlugin extends Plugin {
 	}
 
 	private addNewCommand(plugin: CloudAtlasPlugin, flow: string): void {
+		this.addCommand({
+			id: `run-canvas-flow`,
+			name: `Run Canvas Flow`,
+			callback: async () => {
+				const noteFile = this.app.workspace.getActiveFile();
+				if (!noteFile) {
+					return;
+				}
+				if (noteFile.path.endsWith(".canvas")) {
+					const data = await this.runCanvasFlow(noteFile);
+					console.log(data);
+
+					const notice = new Notice(`Running ${flow} Flow ...`, 0);
+					animateNotice(notice);
+					try {
+						const response = await fetch(
+							"https://api.cloud-atlas.ai/run",
+							{
+								headers: {
+									"x-api-key": this.settings.apiKey,
+								},
+								method: "POST",
+								body: JSON.stringify(data),
+							}
+						);
+						const respJson = await response.json();
+						console.debug("response: ", respJson);
+					} catch (e) {
+						console.log(e);
+						notice.hide();
+						new Notice("Something went wrong. Check the console.");
+					}
+					notice.hide();
+					clearTimeout(noticeTimeout);
+				}
+			},
+		});
+
 		this.addCommand({
 			id: `run-flow-${flow}`,
 			name: `Run ${flow} Flow`,
@@ -178,7 +330,7 @@ export default class CloudAtlasPlugin extends Plugin {
 					: "You are a helpful assistant.";
 
 				system +=
-					"\n\nUse the content in 'input' as the main context, consider the 'additional_context' map for related information, and respond based on the instructions in 'user_prompt'. Assist the user by synthesizing information from these elements into coherent and useful insights or actions.";
+					"\n\n" + ADDITIONAL_SYSTEM;
 
 				const data = { user, system, options: { entity_recognition: false, generate_embeddings: false } };
 

@@ -9,7 +9,6 @@ import {
 	TFile,
 	TFolder,
 } from "obsidian";
-import { stringify } from "querystring";
 
 interface CloudAtlasPluginSettings {
 	apiKey: string;
@@ -107,7 +106,7 @@ export default class CloudAtlasPlugin extends Plugin {
 					return;
 				}
 				// Read the content of the current note file.
-				let noteContent = await this.app.vault.read(noteFile);
+				const noteContent = await this.app.vault.read(noteFile);
 
 				const userPromptPath = `CloudAtlas/${flow}/user_prompt.md`;
 				const systemPath = `CloudAtlas/${flow}/system.md`;
@@ -119,7 +118,7 @@ export default class CloudAtlasPlugin extends Plugin {
 					: "";
 
 				// Initialize the user object with the current page content.
-				let user: {
+				const user: {
 					user_prompt: string;
 					input: string;
 					additional_context: { [key: string]: string };
@@ -134,7 +133,7 @@ export default class CloudAtlasPlugin extends Plugin {
 					.resolvedLinks[noteFile.path];
 
 				const activeBacklinks =
-					await app.metadataCache.getBacklinksForFile(noteFile);
+					await this.app.metadataCache.getBacklinksForFile(noteFile);
 				activeBacklinks.keys().forEach(async (key: string) => {
 					try {
 						const linkedNoteContent = await this.app.vault.read(
@@ -175,7 +174,7 @@ export default class CloudAtlasPlugin extends Plugin {
 				system +=
 					"\n\nUse the content in 'input' as the main context, consider the 'additional_context' map for related information, and respond based on the instructions in 'user_prompt'. Assist the user by synthesizing information from these elements into coherent and useful insights or actions.";
 
-				const data = { user: JSON.stringify(user), system };
+				const data = { user, system };
 
 				console.debug("data: ", data);
 
@@ -183,6 +182,7 @@ export default class CloudAtlasPlugin extends Plugin {
 				animateNotice(notice);
 				try {
 					const response = await fetch(
+						// "http://localhost:8787/run",
 						"https://api.cloud-atlas.ai/run",
 						{
 							headers: {

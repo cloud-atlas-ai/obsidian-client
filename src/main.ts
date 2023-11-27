@@ -75,7 +75,7 @@ export default class CloudAtlasPlugin extends Plugin {
 			);
 			await this.create(
 				"CloudAtlas/example/backlink.md",
-				"[[user]]\n\nActually write about the movie as well, but prefix the move writeup with ---"
+				"[[user]]\n\nActually write about the movie as well, but prefix the movie writeup with"
 			);
 
 			new Notice(
@@ -101,12 +101,18 @@ export default class CloudAtlasPlugin extends Plugin {
 			id: `run-flow-${flow}`,
 			name: `Run ${flow} Flow`,
 			editorCallback: async (editor: Editor, view: MarkdownView) => {
+				let input = editor.getSelection();
+				let fromSelection = true;
 				const noteFile = this.app.workspace.getActiveFile();
 				if (!noteFile) {
 					return;
 				}
-				// Read the content of the current note file.
-				const noteContent = await this.app.vault.read(noteFile);
+				if (!input) {
+					// if there is no text selection, read the content of the current note file.
+					input = await this.app.vault.read(noteFile);
+					fromSelection = false;
+				}
+				// console.log(input);
 
 				const userPromptPath = `CloudAtlas/${flow}/user_prompt.md`;
 				const systemPath = `CloudAtlas/${flow}/system.md`;
@@ -124,7 +130,7 @@ export default class CloudAtlasPlugin extends Plugin {
 					additional_context: { [key: string]: string };
 				} = {
 					user_prompt: userPrompt,
-					input: noteContent,
+					input,
 					additional_context: {},
 				};
 
@@ -194,7 +200,11 @@ export default class CloudAtlasPlugin extends Plugin {
 					);
 					const respJson = await response.json();
 					console.debug("response: ", respJson);
-					editor.replaceSelection("\n" + respJson);
+					if (fromSelection) {
+						editor.replaceSelection(input + "\n\n---\n\n" + respJson + "\n\n---\n\n");
+					} else {
+						editor.replaceSelection("\n\n---\n\n" + respJson);
+					}
 				} catch (e) {
 					console.log(e);
 					notice.hide();

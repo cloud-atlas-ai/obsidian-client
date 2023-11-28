@@ -138,8 +138,10 @@ export default class CloudAtlasPlugin extends Plugin {
 				const activeResolvedLinks = await this.app.metadataCache
 					.resolvedLinks[noteFile.path];
 
+
 				const activeBacklinks =
-					await this.app.metadataCache.getBacklinksForFile(noteFile);
+					// eslint-disable-next-line @typescript-eslint/no-explicit-any
+					await (this.app.metadataCache as any).getBacklinksForFile(noteFile);
 				activeBacklinks.keys().forEach(async (key: string) => {
 					try {
 						const linkedNoteContent = await this.app.vault.read(

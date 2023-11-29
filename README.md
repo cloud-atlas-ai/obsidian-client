@@ -77,10 +77,13 @@ To edit an existing flow, navigate to its subdirectory in `CloudAtlas`. Modify t
 
 ## Manually installing the plugin
 
-- [Enable](https://help.obsidian.md/Extending+Obsidian/Community+plugins#Install+a+community+plugin) community plugins.
-- Download the latest release from the [releases](https://github.com/cloud-atlas-ai/obsidian-client/releases) page.
-- Unzip it and copy the directory to your vault `<vault>/.obsidian/plugins/cloud-atlas/`.
-- Reload Obsidian.
+1. If you don't already use plugins
+     - [Enable](https://help.obsidian.md/Extending+Obsidian/Community+plugins#Install+a+community+plugin) community plugins.
+     - Create a new folder in your Obsidian vault plugin folder (`mkdir <vault>/.obsidian/plugins/`).
+2. Download the latest release from the [releases](https://github.com/cloud-atlas-ai/obsidian-client/releases) page.
+3. Unzip it and copy the directory to your vault `<vault>/.obsidian/plugins/cloud-atlas`.
+4. Reload Obsidian.
+5. Enable the plugin.
 
 ## Development
 

@@ -77,7 +77,7 @@ To edit an existing flow, navigate to its subdirectory in `CloudAtlas`. Modify t
 
 ## Manually installing the plugin
 
-- Download the latest release from the releases page.
+- Download the latest release from the [releases](https://github.com/cloud-atlas-ai/obsidian-client/releases) page.
 - Unzip it and copy the directory to your vault `<vault>/.obsidian/plugins/cloud-atlas/`.
 - Reload Obsidian.
 

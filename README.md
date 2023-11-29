@@ -84,6 +84,7 @@ To edit an existing flow, navigate to its subdirectory in `CloudAtlas`. Modify t
 3. Unzip it and copy the directory to your vault `<vault>/.obsidian/plugins/cloud-atlas`.
 4. Reload Obsidian.
 5. Enable the plugin.
+6. Set the API key in the plugin settings.
 
 ## Development
 

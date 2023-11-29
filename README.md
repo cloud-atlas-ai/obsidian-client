@@ -42,7 +42,7 @@ This plugin enhances Obsidian by allowing you to define and execute custom flows
 
 ### Adding a Flow
 
-1. **Create a Subdirectory**: In your Obsidian vault, navigate to the `CloudAtlas` directory. Each subdirectory within `CloudAtlas` represents a different flow. Create a new subdirectory for your new flow. The name of this subdirectory will be used as the name of the flow.
+1. **Create a Subdirectory**: In your Obsidian `<vault>`, navigate to the `CloudAtlas` directory. Each subdirectory within `CloudAtlas` represents a different flow. Create a new subdirectory for your new flow. The name of this subdirectory will be used as the name of the flow.
 
 2. **Add Required Files**: In your new subdirectory, create two markdown files:
    - `system.md`: This file should contain any system-level instructions or information that you want to send to the API along with your note content.

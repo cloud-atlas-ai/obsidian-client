@@ -1,6 +1,6 @@
 {
   "name": "cloud-atlas",
-  "version": "0.0.4",
+  "version": "0.0.3",
   "description": "Interoperability between Obsidian and Cloud Atlas",
   "main": "dist/main.js",
   "scripts": {

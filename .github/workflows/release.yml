@@ -1,5 +1,8 @@
 name: Build obsidian plugin
 
+permissions:
+  contents: write
+
 on:
   push:
     # Sequence of patterns matched against refs/tags

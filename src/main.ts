@@ -189,14 +189,14 @@ export default class CloudAtlasPlugin extends Plugin {
 				system +=
 					"\n\nUse the content in 'input' as the main context, consider the 'additional_context' map for related information, and respond based on the instructions in 'user_prompt'. Assist the user by synthesizing information from these elements into coherent and useful insights or actions.";
 
-				const data = { user, system, options: {} };
+				const data = { user, system, options: { entity_recognition: false, generate_embeddings: false } };
 
 				if (this.settings.entityRecognition) {
-					data.options["entity_recognition"] = true;
+					data.options.entity_recognition = true as const;
 				}
 
 				if (this.settings.generateEmbeddings) {
-					data.options["generate_embeddings"] = true;
+					data.options.generate_embeddings = true as const;
 				}
 
 				console.debug("data: ", data);

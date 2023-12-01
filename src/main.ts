@@ -12,10 +12,16 @@ import {
 
 interface CloudAtlasPluginSettings {
 	apiKey: string;
+	previewMode: boolean;
+	entityRecognition: boolean;
+	generateEmbeddings: boolean;
 }
 
 const DEFAULT_SETTINGS: CloudAtlasPluginSettings = {
 	apiKey: "",
+	previewMode: false,
+	entityRecognition: false,
+	generateEmbeddings: false,
 };
 
 let noticeTimeout: NodeJS.Timeout;
@@ -138,10 +144,11 @@ export default class CloudAtlasPlugin extends Plugin {
 				const activeResolvedLinks = await this.app.metadataCache
 					.resolvedLinks[noteFile.path];
 
-
 				const activeBacklinks =
 					// eslint-disable-next-line @typescript-eslint/no-explicit-any
-					await (this.app.metadataCache as any).getBacklinksForFile(noteFile);
+					await (this.app.metadataCache as any).getBacklinksForFile(
+						noteFile
+					);
 				activeBacklinks.keys().forEach(async (key: string) => {
 					try {
 						const linkedNoteContent = await this.app.vault.read(
@@ -182,28 +189,37 @@ export default class CloudAtlasPlugin extends Plugin {
 				system +=
 					"\n\nUse the content in 'input' as the main context, consider the 'additional_context' map for related information, and respond based on the instructions in 'user_prompt'. Assist the user by synthesizing information from these elements into coherent and useful insights or actions.";
 
-				const data = { user, system };
+				const data = { user, system, options: {} };
+
+				if (this.settings.entityRecognition) {
+					data.options["entity_recognition"] = true;
+				}
+
+				if (this.settings.generateEmbeddings) {
+					data.options["generate_embeddings"] = true;
+				}
 
 				console.debug("data: ", data);
 
 				const notice = new Notice(`Running ${flow} Flow ...`, 0);
 				animateNotice(notice);
+				const url = this.settings.previewMode
+					? "https://dev-api.cloud-atlas.ai/run"
+					: "https://api.cloud-atlas.ai/run";
 				try {
-					const response = await fetch(
-						// "http://localhost:8787/run",
-						"https://api.cloud-atlas.ai/run",
-						{
-							headers: {
-								"x-api-key": this.settings.apiKey,
-							},
-							method: "POST",
-							body: JSON.stringify(data),
-						}
-					);
+					const response = await fetch(url, {
+						headers: {
+							"x-api-key": this.settings.apiKey,
+						},
+						method: "POST",
+						body: JSON.stringify(data),
+					});
 					const respJson = await response.json();
 					console.debug("response: ", respJson);
 					if (fromSelection) {
-						editor.replaceSelection(input + "\n\n---\n\n" + respJson + "\n\n---\n\n");
+						editor.replaceSelection(
+							input + "\n\n---\n\n" + respJson + "\n\n---\n\n"
+						);
 					} else {
 						editor.replaceSelection("\n\n---\n\n" + respJson);
 					}
@@ -257,6 +273,43 @@ class CloudAtlasGlobalSettingsTab extends PluginSettingTab {
 					.onChange(async (value) => {
 						this.plugin.settings.apiKey = value;
 						await this.plugin.saveSettings();
+					})
+			);
+
+		new Setting(containerEl)
+			.setName("Preview mode")
+			.setDesc("Use unstable API with more features and less stability")
+			.addToggle((toggle) =>
+				toggle
+					.setValue(this.plugin.settings.previewMode)
+					.onChange(async (value) => {
+						this.plugin.settings.previewMode = value;
+					})
+			);
+
+		new Setting(containerEl)
+			.setName("Entity recognition")
+			.setDesc(
+				"Run named entity recognition on submitted notes, results in more relevant context entries, leading to more useful returns"
+			)
+			.addToggle((toggle) =>
+				toggle
+					.setValue(this.plugin.settings.entityRecognition)
+					.onChange(async (value) => {
+						this.plugin.settings.entityRecognition = value;
+					})
+			);
+
+		new Setting(containerEl)
+			.setName("Generate embeddings")
+			.setDesc(
+				"Generate embeddings for submitted notes, allows us to use retrieveal augmented generation"
+			)
+			.addToggle((toggle) =>
+				toggle
+					.setValue(this.plugin.settings.generateEmbeddings)
+					.onChange(async (value) => {
+						this.plugin.settings.generateEmbeddings = value;
 					})
 			);
 	}

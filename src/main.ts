@@ -107,22 +107,22 @@ export default class CloudAtlasPlugin extends Plugin {
 			id: `run-flow-${flow}`,
 			name: `Run ${flow} Flow`,
 			editorCallback: async (editor: Editor, view: MarkdownView) => {
+				const userPath = `CloudAtlas/${flow}/user.md`;
+				const userPromptPath = `CloudAtlas/${flow}/user_prompt.md`;
+				const systemPath = `CloudAtlas/${flow}/system.md`;
+
 				let input = editor.getSelection();
 				let fromSelection = true;
-				const noteFile = this.app.workspace.getActiveFile();
-				if (!noteFile) {
+				const userFile = this.app.vault.getAbstractFileByPath(userPath);
+				if (!userFile) {
 					return;
 				}
 				if (!input) {
 					// if there is no text selection, read the content of the current note file.
-					input = await this.app.vault.read(noteFile);
+					input = await this.app.vault.read(userFile as TFile);
 					fromSelection = false;
 				}
 				// console.log(input);
-
-				const userPromptPath = `CloudAtlas/${flow}/user_prompt.md`;
-				const systemPath = `CloudAtlas/${flow}/system.md`;
-
 				const userPromptFile =
 					this.app.vault.getAbstractFileByPath(userPromptPath);
 				const userPrompt = userPromptFile
@@ -142,12 +142,12 @@ export default class CloudAtlasPlugin extends Plugin {
 
 				// Get resolved links from the current note file.
 				const activeResolvedLinks = await this.app.metadataCache
-					.resolvedLinks[noteFile.path];
+					.resolvedLinks[userFile.path];
 
 				const activeBacklinks =
 					// eslint-disable-next-line @typescript-eslint/no-explicit-any
 					await (this.app.metadataCache as any).getBacklinksForFile(
-						noteFile
+						userFile
 					);
 				activeBacklinks.keys().forEach(async (key: string) => {
 					try {

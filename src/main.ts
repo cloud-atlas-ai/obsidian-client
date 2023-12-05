@@ -193,7 +193,6 @@ export default class CloudAtlasPlugin extends Plugin {
 				await Promise.all([...backlinkPromises, ...resolvedLinkPromises]);
 
 				console.debug("data: ", data);
-				console.debug("stringified data: ", JSON.stringify(data));
 
 				const notice = new Notice(`Running ${flow} Flow ...`, 0);
 				animateNotice(notice);

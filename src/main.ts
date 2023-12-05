@@ -284,6 +284,7 @@ class CloudAtlasGlobalSettingsTab extends PluginSettingTab {
 					.setValue(this.plugin.settings.previewMode)
 					.onChange(async (value) => {
 						this.plugin.settings.previewMode = value;
+						await this.plugin.saveSettings();
 					})
 			);
 
@@ -297,6 +298,7 @@ class CloudAtlasGlobalSettingsTab extends PluginSettingTab {
 					.setValue(this.plugin.settings.entityRecognition)
 					.onChange(async (value) => {
 						this.plugin.settings.entityRecognition = value;
+						await this.plugin.saveSettings();
 					})
 			);
 
@@ -310,6 +312,7 @@ class CloudAtlasGlobalSettingsTab extends PluginSettingTab {
 					.setValue(this.plugin.settings.generateEmbeddings)
 					.onChange(async (value) => {
 						this.plugin.settings.generateEmbeddings = value;
+						await this.plugin.saveSettings();
 					})
 			);
 	}

@@ -149,36 +149,27 @@ export default class CloudAtlasPlugin extends Plugin {
 					await (this.app.metadataCache as any).getBacklinksForFile(
 						noteFile
 					);
-				activeBacklinks.keys().forEach(async (key: string) => {
-					try {
-						const linkedNoteContent = await this.app.vault.read(
-							this.app.vault.getAbstractFileByPath(key) as TFile
-						);
 
-						// Add the linked note content to the additional_context map.
+				// Process backlinks and resolved links
+				const backlinkPromises = Array.from(activeBacklinks.keys()).map(async (key: string) => {
+					try {
+						const linkedNoteContent = await this.app.vault.read(this.app.vault.getAbstractFileByPath(key) as TFile);
 						user.additional_context[key] = linkedNoteContent;
 					} catch (e) {
 						console.log(e);
 					}
 				});
 
-				// console.log(activeBacklinks.data);
-
-				// Process each resolved link.
-				for (const property in activeResolvedLinks) {
+				const resolvedLinkPromises = Object.keys(activeResolvedLinks).map(async (property) => {
 					try {
-						const linkedNoteContent = await this.app.vault.read(
-							this.app.vault.getAbstractFileByPath(
-								property
-							) as TFile
-						);
-
-						// Add the linked note content to the additional_context map.
+						const linkedNoteContent = await this.app.vault.read(this.app.vault.getAbstractFileByPath(property) as TFile);
 						user.additional_context[property] = linkedNoteContent;
 					} catch (e) {
 						console.log(e);
 					}
-				}
+				});
+
+
 
 				const systemFile =
 					this.app.vault.getAbstractFileByPath(systemPath);
@@ -199,7 +190,10 @@ export default class CloudAtlasPlugin extends Plugin {
 					data.options.generate_embeddings = true as const;
 				}
 
+				await Promise.all([...backlinkPromises, ...resolvedLinkPromises]);
+
 				console.debug("data: ", data);
+				console.debug("stringified data: ", JSON.stringify(data));
 
 				const notice = new Notice(`Running ${flow} Flow ...`, 0);
 				animateNotice(notice);
@@ -234,7 +228,7 @@ export default class CloudAtlasPlugin extends Plugin {
 		});
 	}
 
-	onunload() {}
+	onunload() { }
 
 	async loadSettings() {
 		this.settings = Object.assign(

@@ -230,9 +230,8 @@ export default class CloudAtlasPlugin extends Plugin {
 	};
 
 	createFlow = async (flow: string) => {
-		await this.createFolder(`CloudAtlas/Flows}`);
 		await this.create(
-			`CloudAtlas/Canvas/${flow}.canvas`,
+			`CloudAtlas/${flow}.canvas`,
 			JSON.stringify(CANVAS_CONTENT)
 		);
 	};
@@ -415,7 +414,10 @@ export default class CloudAtlasPlugin extends Plugin {
 			this.app.vault.getAbstractFileByPath("CloudAtlas");
 		if (cloudAtlasFolder instanceof TFolder) {
 			cloudAtlasFolder.children.forEach((subfolder: TFolder) => {
-				return this.addNewCommand(this, subfolder.name);
+				if (subfolder.children) {
+					return this.addNewCommand(this, subfolder.name);
+				}
+				
 			});
 		}
 

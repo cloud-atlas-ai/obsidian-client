@@ -102,6 +102,60 @@ export default class CloudAtlasPlugin extends Plugin {
 		}
 	};
 
+	canvasOps = async (noteFile) => {
+		const data = await this.runCanvasFlow(noteFile);
+		if (!data) {
+			return;
+		}
+		// console.log(data);
+
+		const notice = new Notice(`Running Canvas Flow ...`, 0);
+		animateNotice(notice);
+		try {
+			const response = await fetch("https://api.cloud-atlas.ai/run", {
+				headers: {
+					"x-api-key": this.settings.apiKey,
+				},
+				method: "POST",
+				body: JSON.stringify(data.payload),
+			});
+			const respJson = await response.json();
+			const responseNode = {
+				id: randomUUID(),
+				type: "text",
+				text: respJson,
+				x: 0,
+				y: 0,
+				height: 400,
+				width: 400,
+			} as TextNode;
+
+			const canvasContentString = await this.app.vault.read(noteFile);
+			const canvasContent: CanvasContent =
+				JSON.parse(canvasContentString);
+
+			const inputNodes = findInputNode(canvasContent.nodes);
+
+			canvasContent.edges.push({
+				id: randomUUID(),
+				fromNode: inputNodes[0].id,
+				fromSide: "bottom",
+				toNode: responseNode.id,
+				toSide: "top",
+			});
+
+			canvasContent.nodes.push(responseNode);
+			this.app.vault.modify(noteFile, JSON.stringify(canvasContent));
+			console.debug("response: ", respJson);
+		} catch (e) {
+			console.log(e);
+			notice.hide();
+			new Notice("Something went wrong. Check the console.");
+		}
+		notice.hide();
+		clearTimeout(noticeTimeout);
+	};
+
 	runCanvasFlow = async (
 		canvasFile: TFile
 	): Promise<CanvasScaffolding | undefined> => {
@@ -150,11 +204,12 @@ export default class CloudAtlasPlugin extends Plugin {
 		system_instructions.push(ADDITIONAL_SYSTEM);
 
 		const additional_context = {};
-		let promises = filterNodesByType(NodeType.Context, connectedNodes).map(
-			async (node) => {
-				additional_context[node.id] = await this.getNodeContent(node);
-			}
-		);
+		const promises = filterNodesByType(
+			NodeType.Context,
+			connectedNodes
+		).map(async (node) => {
+			additional_context[node.id] = await this.getNodeContent(node);
+		});
 		await Promise.all(promises);
 
 		const user: User = {
@@ -221,74 +276,18 @@ export default class CloudAtlasPlugin extends Plugin {
 		this.addCommand({
 			id: `run-canvas-flow`,
 			name: `Run Canvas Flow`,
-			callback: async () => {
+			checkCallback: (checking: boolean) => {
+				// console.log("checking: ", checking);
 				const noteFile = this.app.workspace.getActiveFile();
-				if (!noteFile) {
-					return;
-				}
-				if (noteFile.path.endsWith(".canvas")) {
-					const data = await this.runCanvasFlow(noteFile);
-					if (!data) {
-						return;
+				if (noteFile) {
+					if (noteFile.path.endsWith(".canvas")) {
+						// console.log("Command can run");
+						if (!checking) {
+							// console.log("Running command");
+							this.canvasOps(noteFile).then(() => {});
+						}
+						return true;
 					}
-					// console.log(data);
-
-					const notice = new Notice(
-						`Running ${flow} Canvas Flow ...`,
-						0
-					);
-					animateNotice(notice);
-					try {
-						const response = await fetch(
-							"https://api.cloud-atlas.ai/run",
-							{
-								headers: {
-									"x-api-key": this.settings.apiKey,
-								},
-								method: "POST",
-								body: JSON.stringify(data.payload),
-							}
-						);
-						const respJson = await response.json();
-						const responseNode = {
-							id: randomUUID(),
-							type: "text",
-							text: respJson,
-							x: 0,
-							y: 0,
-							height: 400,
-							width: 400,
-						} as TextNode;
-
-						const canvasContentString = await this.app.vault.read(
-							noteFile
-						);
-						const canvasContent: CanvasContent =
-							JSON.parse(canvasContentString);
-
-						const inputNodes = findInputNode(canvasContent.nodes);
-
-						canvasContent.edges.push({
-							id: randomUUID(),
-							fromNode: inputNodes[0].id,
-							fromSide: "bottom",
-							toNode: responseNode.id,
-							toSide: "top",
-						});
-
-						canvasContent.nodes.push(responseNode);
-						this.app.vault.modify(
-							noteFile,
-							JSON.stringify(canvasContent)
-						);
-						console.debug("response: ", respJson);
-					} catch (e) {
-						console.log(e);
-						notice.hide();
-						new Notice("Something went wrong. Check the console.");
-					}
-					notice.hide();
-					clearTimeout(noticeTimeout);
 				}
 			},
 		});

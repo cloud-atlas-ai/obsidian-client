@@ -482,6 +482,8 @@ class CloudAtlasGlobalSettingsTab extends PluginSettingTab {
 
 		containerEl.empty();
 
+		containerEl.createEl("h1", { text: "General" });
+
 		new Setting(containerEl)
 			.setName("API Key")
 			.setDesc("Cloud Atlas API key")
@@ -535,8 +537,10 @@ class CloudAtlasGlobalSettingsTab extends PluginSettingTab {
 					})
 			);
 
+		containerEl.createEl("h1", { text: "Canvas Flows" });
+
 		new Setting(containerEl)
-			.setName("Resolve links in Canvas Flows")
+			.setName("Resolve links")
 			.setDesc("Adds resolved links as additional prompt context")
 			.addToggle((toggle) =>
 				toggle
@@ -548,7 +552,7 @@ class CloudAtlasGlobalSettingsTab extends PluginSettingTab {
 			);
 
 		new Setting(containerEl)
-			.setName("Resolve bacllinks in Canvas Flows")
+			.setName("Resolve backlinks")
 			.setDesc("Adds resolved backlinks as additional prompt context")
 			.addToggle((toggle) =>
 				toggle

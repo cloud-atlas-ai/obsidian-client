@@ -20,8 +20,9 @@ import {
 	filterNodesByType,
 	NodeType,
 	CanvasScaffolding,
+	textNode,
 } from "./canvas";
-import { User } from "./interfaces";
+import { AdditionalContext, Payload, User } from "./interfaces";
 import { randomUUID } from "crypto";
 
 const ADDITIONAL_SYSTEM =
@@ -32,6 +33,8 @@ interface CloudAtlasPluginSettings {
 	previewMode: boolean;
 	entityRecognition: boolean;
 	generateEmbeddings: boolean;
+	canvasResolveLinks: boolean;
+	canvasResolveBacklinks: boolean;
 }
 
 const DEFAULT_SETTINGS: CloudAtlasPluginSettings = {
@@ -39,6 +42,8 @@ const DEFAULT_SETTINGS: CloudAtlasPluginSettings = {
 	previewMode: false,
 	entityRecognition: false,
 	generateEmbeddings: false,
+	canvasResolveLinks: false,
+	canvasResolveBacklinks: false,
 };
 
 let noticeTimeout: NodeJS.Timeout;
@@ -59,6 +64,80 @@ const animateNotice = (notice: Notice) => {
 
 export default class CloudAtlasPlugin extends Plugin {
 	settings: CloudAtlasPluginSettings;
+
+	readNote = async (filePath: string): Promise<string> => {
+		const content = await this.app.vault.read(
+			this.app.vault.getAbstractFileByPath(filePath) as TFile
+		);
+		return content;
+	};
+
+	resolveBacklinksForPath = async (
+		filePath: string
+	): Promise<AdditionalContext> => {
+		const additionalContext: AdditionalContext = {};
+
+		const file = this.app.vault.getAbstractFileByPath(filePath) as TFile;
+
+		const activeBacklinks =
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			await (this.app.metadataCache as any).getBacklinksForFile(file);
+
+		// Process backlinks and resolved links
+		const backlinkPromises = Array.from(activeBacklinks.keys()).map(
+			async (key: string) => {
+				try {
+					const linkedNoteContent = await this.readNote(key);
+					additionalContext[key] = linkedNoteContent;
+				} catch (e) {
+					console.log(e);
+				}
+			}
+		);
+
+		await Promise.all(backlinkPromises);
+		return additionalContext;
+	};
+
+	resolveLinksForPath = async (
+		filePath: string
+	): Promise<AdditionalContext> => {
+		const additionalContext: AdditionalContext = {};
+
+		// Get resolved links from the current note file.
+		const activeResolvedLinks = await this.app.metadataCache.resolvedLinks[
+			filePath
+		];
+
+		const resolvedLinkPromises = Object.keys(activeResolvedLinks).map(
+			async (property) => {
+				try {
+					const linkedNoteContent = await this.readNote(property);
+					additionalContext[property] = linkedNoteContent;
+				} catch (e) {
+					console.log(e);
+				}
+			}
+		);
+
+		await Promise.all(resolvedLinkPromises);
+		return additionalContext;
+	};
+
+	apiFetch = async (payload: Payload): Promise<string> => {
+		const url = this.settings.previewMode
+			? "https://dev-api.cloud-atlas.ai/run"
+			: "https://api.cloud-atlas.ai/run";
+		const response = await fetch(url, {
+			headers: {
+				"x-api-key": this.settings.apiKey,
+			},
+			method: "POST",
+			body: JSON.stringify(payload),
+		});
+		const respJson = await response.json();
+		return respJson;
+	};
 
 	getNodeContent = async (node: Node) => {
 		if (node.type == "text") {
@@ -102,7 +181,7 @@ export default class CloudAtlasPlugin extends Plugin {
 		}
 	};
 
-	canvasOps = async (noteFile) => {
+	canvasOps = async (noteFile: TFile) => {
 		const data = await this.runCanvasFlow(noteFile);
 		if (!data) {
 			return;
@@ -111,24 +190,11 @@ export default class CloudAtlasPlugin extends Plugin {
 
 		const notice = new Notice(`Running Canvas Flow ...`, 0);
 		animateNotice(notice);
+
 		try {
-			const response = await fetch("https://api.cloud-atlas.ai/run", {
-				headers: {
-					"x-api-key": this.settings.apiKey,
-				},
-				method: "POST",
-				body: JSON.stringify(data.payload),
-			});
-			const respJson = await response.json();
-			const responseNode = {
-				id: randomUUID(),
-				type: "text",
-				text: respJson,
-				x: 0,
-				y: 0,
-				height: 400,
-				width: 400,
-			} as TextNode;
+			const respJson = await this.apiFetch(data.payload);
+
+			const responseNode = textNode(respJson);
 
 			const canvasContentString = await this.app.vault.read(noteFile);
 			const canvasContent: CanvasContent =
@@ -203,14 +269,34 @@ export default class CloudAtlasPlugin extends Plugin {
 
 		system_instructions.push(ADDITIONAL_SYSTEM);
 
-		const additional_context = {};
+		const additional_context: AdditionalContext = {};
 		const promises = filterNodesByType(
 			NodeType.Context,
 			connectedNodes
 		).map(async (node) => {
-			additional_context[node.id] = await this.getNodeContent(node);
+			const content = await this.getNodeContent(node);
+			if (content) {
+				additional_context[node.id] = content;
+			}
 		});
 		await Promise.all(promises);
+
+		if ((inputNode as FileNode).file) {
+			if (this.settings.canvasResolveLinks) {
+				const resolvedLinks = await this.resolveLinksForPath(
+					(inputNode as FileNode).file
+				);
+				Object.assign(additional_context, resolvedLinks);
+			}
+
+			if (this.settings.canvasResolveBacklinks) {
+				const resolvedBacklinks = await this.resolveBacklinksForPath(
+					(inputNode as FileNode).file
+				);
+
+				Object.assign(additional_context, resolvedBacklinks);
+			}
+		}
 
 		const user: User = {
 			user_prompt: user_prompt.join("\n"),
@@ -312,71 +398,29 @@ export default class CloudAtlasPlugin extends Plugin {
 				const userPromptPath = `CloudAtlas/${flow}/user_prompt.md`;
 				const systemPath = `CloudAtlas/${flow}/system.md`;
 
-				const userPromptFile =
-					this.app.vault.getAbstractFileByPath(userPromptPath);
-				const userPrompt = userPromptFile
-					? await this.app.vault.read(userPromptFile as TFile)
-					: "";
+				const userPrompt = (await this.readNote(userPromptPath)) || "";
 
 				// Initialize the user object with the current page content.
-				const user: {
-					user_prompt: string;
-					input: string;
-					additional_context: { [key: string]: string };
-				} = {
+				const user: User = {
 					user_prompt: userPrompt,
 					input,
 					additional_context: {},
 				};
 
-				// Get resolved links from the current note file.
-				const activeResolvedLinks = await this.app.metadataCache
-					.resolvedLinks[noteFile.path];
+				let system = await this.readNote(systemPath);
+				system = system ? system : "You are a helpful assistant.";
+				system += "\n\n" + ADDITIONAL_SYSTEM;
 
-				const activeBacklinks =
-					// eslint-disable-next-line @typescript-eslint/no-explicit-any
-					await (this.app.metadataCache as any).getBacklinksForFile(
-						noteFile
-					);
-
-				// Process backlinks and resolved links
-				const backlinkPromises = Array.from(activeBacklinks.keys()).map(
-					async (key: string) => {
-						try {
-							const linkedNoteContent = await this.app.vault.read(
-								this.app.vault.getAbstractFileByPath(
-									key
-								) as TFile
-							);
-							user.additional_context[key] = linkedNoteContent;
-						} catch (e) {
-							console.log(e);
-						}
-					}
+				const resolvedLinks = await this.resolveLinksForPath(
+					noteFile.path
 				);
 
-				const resolvedLinkPromises = Object.keys(
-					activeResolvedLinks
-				).map(async (property) => {
-					try {
-						const linkedNoteContent = await this.app.vault.read(
-							this.app.vault.getAbstractFileByPath(
-								property
-							) as TFile
-						);
-						user.additional_context[property] = linkedNoteContent;
-					} catch (e) {
-						console.log(e);
-					}
-				});
+				const resolvedBacklinks = await this.resolveBacklinksForPath(
+					noteFile.path
+				);
 
-				const systemFile =
-					this.app.vault.getAbstractFileByPath(systemPath);
-				let system = systemFile
-					? await this.app.vault.read(systemFile as TFile)
-					: "You are a helpful assistant.";
-
-				system += "\n\n" + ADDITIONAL_SYSTEM;
+				Object.assign(user.additional_context, resolvedLinks);
+				Object.assign(user.additional_context, resolvedBacklinks);
 
 				const data = {
 					user,
@@ -395,27 +439,13 @@ export default class CloudAtlasPlugin extends Plugin {
 					data.options.generate_embeddings = true as const;
 				}
 
-				await Promise.all([
-					...backlinkPromises,
-					...resolvedLinkPromises,
-				]);
-
 				console.debug("data: ", data);
 
 				const notice = new Notice(`Running ${flow} Flow ...`, 0);
 				animateNotice(notice);
-				const url = this.settings.previewMode
-					? "https://dev-api.cloud-atlas.ai/run"
-					: "https://api.cloud-atlas.ai/run";
+
 				try {
-					const response = await fetch(url, {
-						headers: {
-							"x-api-key": this.settings.apiKey,
-						},
-						method: "POST",
-						body: JSON.stringify(data),
-					});
-					const respJson = await response.json();
+					const respJson = await this.apiFetch(data);
 					console.debug("response: ", respJson);
 					if (fromSelection) {
 						editor.replaceSelection(
@@ -425,7 +455,7 @@ export default class CloudAtlasPlugin extends Plugin {
 						editor.replaceSelection("\n\n---\n\n" + respJson);
 					}
 				} catch (e) {
-					console.log(e);
+					console.error(e);
 					notice.hide();
 					new Notice("Something went wrong. Check the console.");
 				}
@@ -466,7 +496,7 @@ class CloudAtlasGlobalSettingsTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName("API Key")
-			.setDesc("It's a secret")
+			.setDesc("Cloud Atlas API key")
 			.addText((text) =>
 				text
 					.setPlaceholder("Enter API key")
@@ -513,6 +543,30 @@ class CloudAtlasGlobalSettingsTab extends PluginSettingTab {
 					.setValue(this.plugin.settings.generateEmbeddings)
 					.onChange(async (value) => {
 						this.plugin.settings.generateEmbeddings = value;
+						await this.plugin.saveSettings();
+					})
+			);
+
+		new Setting(containerEl)
+			.setName("Resolve links in Canvas Flows")
+			.setDesc("Adds resolved links as additional prompt context")
+			.addToggle((toggle) =>
+				toggle
+					.setValue(this.plugin.settings.canvasResolveLinks)
+					.onChange(async (value) => {
+						this.plugin.settings.canvasResolveLinks = value;
+						await this.plugin.saveSettings();
+					})
+			);
+
+		new Setting(containerEl)
+			.setName("Resolve bacllinks in Canvas Flows")
+			.setDesc("Adds resolved backlinks as additional prompt context")
+			.addToggle((toggle) =>
+				toggle
+					.setValue(this.plugin.settings.canvasResolveBacklinks)
+					.onChange(async (value) => {
+						this.plugin.settings.canvasResolveBacklinks = value;
 						await this.plugin.saveSettings();
 					})
 			);

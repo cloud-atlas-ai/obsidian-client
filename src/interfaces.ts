@@ -3,8 +3,12 @@ export interface Payload {
 	system: string;
 }
 
+export interface AdditionalContext {
+	[key: string]: string;
+}
+
 export interface User {
 	user_prompt: string;
 	input: string;
-	additional_context: { [key: string]: string };
+	additional_context: AdditionalContext;
 }

@@ -1,3 +1,4 @@
+import { randomUUID } from "crypto";
 import { Payload } from "./interfaces";
 
 export type Node = FileNode | TextNode;
@@ -21,7 +22,26 @@ export interface TextNode {
 	y: number;
 	width: number;
 	height: number;
-	color: string;
+	color: string | undefined;
+}
+
+export function textNode(
+	text: string,
+	x?: number,
+	y?: number,
+	height?: number,
+	width?: number
+): TextNode {
+	return {
+		id: randomUUID(),
+		type: "text",
+		text: text,
+		x: x ? x : 0,
+		y: y ? y : 0,
+		width: width ? width : 400,
+		height: height ? height : 400,
+		color: undefined,
+	};
 }
 
 // {

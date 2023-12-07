@@ -65,7 +65,8 @@ const animateNotice = (notice: Notice) => {
 export default class CloudAtlasPlugin extends Plugin {
 	settings: CloudAtlasPluginSettings;
 
-	runFlow = async (editor: Editor, flow: string, noteFile: TFile) => {
+	runFlow = async (editor: Editor, flow: string) => {
+		const noteFile = this.app.workspace.getActiveFile();
 		let input = editor.getSelection();
 		let fromSelection = true;
 
@@ -444,21 +445,8 @@ export default class CloudAtlasPlugin extends Plugin {
 		this.addCommand({
 			id: `run-flow-${flow}`,
 			name: `Run ${flow} Flow`,
-			editorCheckCallback: (
-				checking: boolean,
-				editor: Editor,
-				view: MarkdownView
-			) => {
-				const noteFile = this.app.workspace.getActiveFile();
-				if (noteFile) {
-					if (noteFile.path.includes(`CloudAtlas/${flow}/`)) {
-						if (!checking) {
-							this.runFlow(editor, flow, noteFile).then(() => {});
-						}
-						return true;
-					}
-				}
-				return false;
+			editorCallback: async (editor: Editor, view: MarkdownView) => {
+				this.runFlow(editor, flow).then(() => {});
 			},
 		});
 	}

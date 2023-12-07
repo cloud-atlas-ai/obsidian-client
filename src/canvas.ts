@@ -1,3 +1,5 @@
+import { Payload } from "./interfaces";
+
 export type Node = FileNode | TextNode;
 
 export interface FileNode {
@@ -49,6 +51,11 @@ export enum NodeType {
 	System,
 	Context,
 	UserPrompt,
+}
+
+export interface CanvasScaffolding {
+	payload: Payload;
+	canvas: CanvasContent;
 }
 
 export const filterNodesByType = (type: NodeType, nodes: Node[]): Node[] => {

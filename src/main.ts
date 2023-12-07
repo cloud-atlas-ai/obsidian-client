@@ -19,26 +19,19 @@ import {
 	TextNode,
 	filterNodesByType,
 	NodeType,
+	CanvasScaffolding,
 } from "./canvas";
+import { User } from "./interfaces";
+import { randomUUID } from "crypto";
 
-const ADDITIONAL_SYSTEM = "Use the content in 'input' as the main context, consider the 'additional_context' map for related information, and respond based on the instructions in 'user_prompt'. Assist the user by synthesizing information from these elements into coherent and useful insights or actions."
+const ADDITIONAL_SYSTEM =
+	"Use the content in 'input' as the main context, consider the 'additional_context' map for related information, and respond based on the instructions in 'user_prompt'. Assist the user by synthesizing information from these elements into coherent and useful insights or actions.";
 
 interface CloudAtlasPluginSettings {
 	apiKey: string;
 	previewMode: boolean;
 	entityRecognition: boolean;
 	generateEmbeddings: boolean;
-}
-
-interface User {
-	user_prompt: string;
-	input: string;
-	additional_context: { [key: string]: string };
-}
-
-interface Payload {
-	user: string;
-	system: string;
 }
 
 const DEFAULT_SETTINGS: CloudAtlasPluginSettings = {
@@ -109,9 +102,12 @@ export default class CloudAtlasPlugin extends Plugin {
 		}
 	};
 
-	runCanvasFlow = async (canvasFile: TFile): Promise<Payload | undefined> => {
+	runCanvasFlow = async (
+		canvasFile: TFile
+	): Promise<CanvasScaffolding | undefined> => {
 		const canvasContentString = await this.app.vault.read(canvasFile);
 		const canvasContent: CanvasContent = JSON.parse(canvasContentString);
+		// console.log(canvasContent);
 		const inputNodes = findInputNode(canvasContent.nodes);
 		if (!inputNodes) {
 			new Notice("Could not find User(Red) node.");
@@ -154,11 +150,13 @@ export default class CloudAtlasPlugin extends Plugin {
 		system_instructions.push(ADDITIONAL_SYSTEM);
 
 		const additional_context = {};
-		await filterNodesByType(NodeType.Context, connectedNodes).forEach(
+		let promises = filterNodesByType(NodeType.Context, connectedNodes).map(
 			async (node) => {
 				additional_context[node.id] = await this.getNodeContent(node);
 			}
 		);
+		await Promise.all(promises);
+
 		const user: User = {
 			user_prompt: user_prompt.join("\n"),
 			input: input ? input : "",
@@ -166,8 +164,11 @@ export default class CloudAtlasPlugin extends Plugin {
 		};
 
 		return {
-			user: JSON.stringify(user),
-			system: system_instructions.join("\n"),
+			payload: {
+				user: user,
+				system: system_instructions.join("\n"),
+			},
+			canvas: canvasContent,
 		};
 	};
 
@@ -227,9 +228,15 @@ export default class CloudAtlasPlugin extends Plugin {
 				}
 				if (noteFile.path.endsWith(".canvas")) {
 					const data = await this.runCanvasFlow(noteFile);
-					console.log(data);
+					if (!data) {
+						return;
+					}
+					// console.log(data);
 
-					const notice = new Notice(`Running ${flow} Flow ...`, 0);
+					const notice = new Notice(
+						`Running ${flow} Canvas Flow ...`,
+						0
+					);
 					animateNotice(notice);
 					try {
 						const response = await fetch(
@@ -239,10 +246,41 @@ export default class CloudAtlasPlugin extends Plugin {
 									"x-api-key": this.settings.apiKey,
 								},
 								method: "POST",
-								body: JSON.stringify(data),
+								body: JSON.stringify(data.payload),
 							}
 						);
 						const respJson = await response.json();
+						const responseNode = {
+							id: randomUUID(),
+							type: "text",
+							text: respJson,
+							x: 0,
+							y: 0,
+							height: 400,
+							width: 400,
+						} as TextNode;
+
+						const canvasContentString = await this.app.vault.read(
+							noteFile
+						);
+						const canvasContent: CanvasContent =
+							JSON.parse(canvasContentString);
+
+						const inputNodes = findInputNode(canvasContent.nodes);
+
+						canvasContent.edges.push({
+							id: randomUUID(),
+							fromNode: inputNodes[0].id,
+							fromSide: "bottom",
+							toNode: responseNode.id,
+							toSide: "top",
+						});
+
+						canvasContent.nodes.push(responseNode);
+						this.app.vault.modify(
+							noteFile,
+							JSON.stringify(canvasContent)
+						);
 						console.debug("response: ", respJson);
 					} catch (e) {
 						console.log(e);
@@ -303,25 +341,35 @@ export default class CloudAtlasPlugin extends Plugin {
 					);
 
 				// Process backlinks and resolved links
-				const backlinkPromises = Array.from(activeBacklinks.keys()).map(async (key: string) => {
-					try {
-						const linkedNoteContent = await this.app.vault.read(this.app.vault.getAbstractFileByPath(key) as TFile);
-						user.additional_context[key] = linkedNoteContent;
-					} catch (e) {
-						console.log(e);
+				const backlinkPromises = Array.from(activeBacklinks.keys()).map(
+					async (key: string) => {
+						try {
+							const linkedNoteContent = await this.app.vault.read(
+								this.app.vault.getAbstractFileByPath(
+									key
+								) as TFile
+							);
+							user.additional_context[key] = linkedNoteContent;
+						} catch (e) {
+							console.log(e);
+						}
 					}
-				});
+				);
 
-				const resolvedLinkPromises = Object.keys(activeResolvedLinks).map(async (property) => {
+				const resolvedLinkPromises = Object.keys(
+					activeResolvedLinks
+				).map(async (property) => {
 					try {
-						const linkedNoteContent = await this.app.vault.read(this.app.vault.getAbstractFileByPath(property) as TFile);
+						const linkedNoteContent = await this.app.vault.read(
+							this.app.vault.getAbstractFileByPath(
+								property
+							) as TFile
+						);
 						user.additional_context[property] = linkedNoteContent;
 					} catch (e) {
 						console.log(e);
 					}
 				});
-
-
 
 				const systemFile =
 					this.app.vault.getAbstractFileByPath(systemPath);
@@ -329,10 +377,16 @@ export default class CloudAtlasPlugin extends Plugin {
 					? await this.app.vault.read(systemFile as TFile)
 					: "You are a helpful assistant.";
 
-				system +=
-					"\n\n" + ADDITIONAL_SYSTEM;
+				system += "\n\n" + ADDITIONAL_SYSTEM;
 
-				const data = { user, system, options: { entity_recognition: false, generate_embeddings: false } };
+				const data = {
+					user,
+					system,
+					options: {
+						entity_recognition: false,
+						generate_embeddings: false,
+					},
+				};
 
 				if (this.settings.entityRecognition) {
 					data.options.entity_recognition = true as const;
@@ -342,7 +396,10 @@ export default class CloudAtlasPlugin extends Plugin {
 					data.options.generate_embeddings = true as const;
 				}
 
-				await Promise.all([...backlinkPromises, ...resolvedLinkPromises]);
+				await Promise.all([
+					...backlinkPromises,
+					...resolvedLinkPromises,
+				]);
 
 				console.debug("data: ", data);
 
@@ -379,7 +436,7 @@ export default class CloudAtlasPlugin extends Plugin {
 		});
 	}
 
-	onunload() { }
+	onunload() {}
 
 	async loadSettings() {
 		this.settings = Object.assign(

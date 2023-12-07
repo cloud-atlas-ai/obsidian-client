@@ -65,6 +65,85 @@ const animateNotice = (notice: Notice) => {
 export default class CloudAtlasPlugin extends Plugin {
 	settings: CloudAtlasPluginSettings;
 
+	runFlow = async (editor: Editor, flow: string, noteFile: TFile) => {
+		let input = editor.getSelection();
+		let fromSelection = true;
+
+		if (!noteFile) {
+			return;
+		}
+		if (!input) {
+			// if there is no text selection, read the content of the current note file.
+			input = await this.app.vault.read(noteFile);
+			fromSelection = false;
+		}
+
+		const userPromptPath = `CloudAtlas/${flow}/user_prompt.md`;
+		const systemPath = `CloudAtlas/${flow}/system.md`;
+
+		const userPrompt = (await this.readNote(userPromptPath)) || "";
+
+		// Initialize the user object with the current page content.
+		const user: User = {
+			user_prompt: userPrompt,
+			input,
+			additional_context: {},
+		};
+
+		let system = await this.readNote(systemPath);
+		system = system ? system : "You are a helpful assistant.";
+		system += "\n\n" + ADDITIONAL_SYSTEM;
+
+		const resolvedLinks = await this.resolveLinksForPath(noteFile.path);
+
+		const resolvedBacklinks = await this.resolveBacklinksForPath(
+			noteFile.path
+		);
+
+		Object.assign(user.additional_context, resolvedLinks);
+		Object.assign(user.additional_context, resolvedBacklinks);
+
+		const data = {
+			user,
+			system,
+			options: {
+				entity_recognition: false,
+				generate_embeddings: false,
+			},
+		};
+
+		if (this.settings.entityRecognition) {
+			data.options.entity_recognition = true as const;
+		}
+
+		if (this.settings.generateEmbeddings) {
+			data.options.generate_embeddings = true as const;
+		}
+
+		console.debug("data: ", data);
+
+		const notice = new Notice(`Running ${flow} Flow ...`, 0);
+		animateNotice(notice);
+
+		try {
+			const respJson = await this.apiFetch(data);
+			console.debug("response: ", respJson);
+			if (fromSelection) {
+				editor.replaceSelection(
+					input + "\n\n---\n\n" + respJson + "\n\n---\n\n"
+				);
+			} else {
+				editor.replaceSelection("\n\n---\n\n" + respJson);
+			}
+		} catch (e) {
+			console.error(e);
+			notice.hide();
+			new Notice("Something went wrong. Check the console.");
+		}
+		notice.hide();
+		clearTimeout(noticeTimeout);
+	};
+
 	readNote = async (filePath: string): Promise<string> => {
 		const content = await this.app.vault.read(
 			this.app.vault.getAbstractFileByPath(filePath) as TFile
@@ -76,13 +155,10 @@ export default class CloudAtlasPlugin extends Plugin {
 		filePath: string
 	): Promise<AdditionalContext> => {
 		const additionalContext: AdditionalContext = {};
-
 		const file = this.app.vault.getAbstractFileByPath(filePath) as TFile;
-
 		const activeBacklinks =
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			await (this.app.metadataCache as any).getBacklinksForFile(file);
-
 		// Process backlinks and resolved links
 		const backlinkPromises = Array.from(activeBacklinks.keys()).map(
 			async (key: string) => {
@@ -94,7 +170,6 @@ export default class CloudAtlasPlugin extends Plugin {
 				}
 			}
 		);
-
 		await Promise.all(backlinkPromises);
 		return additionalContext;
 	};
@@ -103,12 +178,9 @@ export default class CloudAtlasPlugin extends Plugin {
 		filePath: string
 	): Promise<AdditionalContext> => {
 		const additionalContext: AdditionalContext = {};
-
-		// Get resolved links from the current note file.
 		const activeResolvedLinks = await this.app.metadataCache.resolvedLinks[
 			filePath
 		];
-
 		const resolvedLinkPromises = Object.keys(activeResolvedLinks).map(
 			async (property) => {
 				try {
@@ -119,7 +191,6 @@ export default class CloudAtlasPlugin extends Plugin {
 				}
 			}
 		);
-
 		await Promise.all(resolvedLinkPromises);
 		return additionalContext;
 	};
@@ -160,7 +231,7 @@ export default class CloudAtlasPlugin extends Plugin {
 	createFlow = async (flow: string) => {
 		await this.createFolder(`CloudAtlas/Flows}`);
 		await this.create(
-			`CloudAtlas/Flows/${flow}.canvas`,
+			`CloudAtlas/Canvas/${flow}.canvas`,
 			JSON.stringify(CANVAS_CONTENT)
 		);
 	};
@@ -242,12 +313,8 @@ export default class CloudAtlasPlugin extends Plugin {
 		const connectedNodes = canvasContent.nodes.filter((node) => {
 			return connectedNodeIds.includes(node.id);
 		});
-		// console.log(inputNode);
-		// console.log(inputNodeEdges);
-		// console.log(connectedNodes);
 		const input = await this.getNodeContent(inputNode);
 		const user_prompt = [];
-
 		for (const node of filterNodesByType(
 			NodeType.UserPrompt,
 			connectedNodes
@@ -257,18 +324,14 @@ export default class CloudAtlasPlugin extends Plugin {
 				user_prompt.push(content);
 			}
 		}
-
 		const system_instructions = [];
-
 		for (const node of filterNodesByType(NodeType.System, connectedNodes)) {
 			const content = await this.getNodeContent(node);
 			if (content) {
 				system_instructions.push(content);
 			}
 		}
-
 		system_instructions.push(ADDITIONAL_SYSTEM);
-
 		const additional_context: AdditionalContext = {};
 		const promises = filterNodesByType(
 			NodeType.Context,
@@ -381,86 +444,21 @@ export default class CloudAtlasPlugin extends Plugin {
 		this.addCommand({
 			id: `run-flow-${flow}`,
 			name: `Run ${flow} Flow`,
-			editorCallback: async (editor: Editor, view: MarkdownView) => {
-				let input = editor.getSelection();
-				let fromSelection = true;
+			editorCheckCallback: (
+				checking: boolean,
+				editor: Editor,
+				view: MarkdownView
+			) => {
 				const noteFile = this.app.workspace.getActiveFile();
-				if (!noteFile) {
-					return;
-				}
-				if (!input) {
-					// if there is no text selection, read the content of the current note file.
-					input = await this.app.vault.read(noteFile);
-					fromSelection = false;
-				}
-				// console.log(input);
-
-				const userPromptPath = `CloudAtlas/${flow}/user_prompt.md`;
-				const systemPath = `CloudAtlas/${flow}/system.md`;
-
-				const userPrompt = (await this.readNote(userPromptPath)) || "";
-
-				// Initialize the user object with the current page content.
-				const user: User = {
-					user_prompt: userPrompt,
-					input,
-					additional_context: {},
-				};
-
-				let system = await this.readNote(systemPath);
-				system = system ? system : "You are a helpful assistant.";
-				system += "\n\n" + ADDITIONAL_SYSTEM;
-
-				const resolvedLinks = await this.resolveLinksForPath(
-					noteFile.path
-				);
-
-				const resolvedBacklinks = await this.resolveBacklinksForPath(
-					noteFile.path
-				);
-
-				Object.assign(user.additional_context, resolvedLinks);
-				Object.assign(user.additional_context, resolvedBacklinks);
-
-				const data = {
-					user,
-					system,
-					options: {
-						entity_recognition: false,
-						generate_embeddings: false,
-					},
-				};
-
-				if (this.settings.entityRecognition) {
-					data.options.entity_recognition = true as const;
-				}
-
-				if (this.settings.generateEmbeddings) {
-					data.options.generate_embeddings = true as const;
-				}
-
-				console.debug("data: ", data);
-
-				const notice = new Notice(`Running ${flow} Flow ...`, 0);
-				animateNotice(notice);
-
-				try {
-					const respJson = await this.apiFetch(data);
-					console.debug("response: ", respJson);
-					if (fromSelection) {
-						editor.replaceSelection(
-							input + "\n\n---\n\n" + respJson + "\n\n---\n\n"
-						);
-					} else {
-						editor.replaceSelection("\n\n---\n\n" + respJson);
+				if (noteFile) {
+					if (noteFile.path.includes(`CloudAtlas/${flow}/`)) {
+						if (!checking) {
+							this.runFlow(editor, flow, noteFile).then(() => {});
+						}
+						return true;
 					}
-				} catch (e) {
-					console.error(e);
-					notice.hide();
-					new Notice("Something went wrong. Check the console.");
 				}
-				notice.hide();
-				clearTimeout(noticeTimeout);
+				return false;
 			},
 		});
 	}

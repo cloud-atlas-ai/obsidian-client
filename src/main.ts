@@ -79,6 +79,19 @@ export default class CloudAtlasPlugin extends Plugin {
 			fromSelection = false;
 		}
 
+		if (fromSelection) {
+			editor.replaceSelection(
+				input +
+					"\n\n---\n\n" +
+					`\u{1F4C4}\u{2194}\u{1F916}` +
+					"\n\n---\n\n"
+			);
+		} else {
+			editor.replaceSelection(
+				"\n\n---\n\n" + `\u{1F4C4}\u{2194}\u{1F916}` + "\n\n---\n\n"
+			);
+		}
+
 		const userPromptPath = `CloudAtlas/${flow}/user_prompt.md`;
 		const systemPath = `CloudAtlas/${flow}/system.md`;
 
@@ -128,14 +141,21 @@ export default class CloudAtlasPlugin extends Plugin {
 
 		try {
 			const respJson = await this.apiFetch(data);
+			const currentNoteContents = await this.app.vault.read(noteFile);
+			const output = currentNoteContents.replace(
+				`\u{1F4C4}\u{2194}\u{1F916}`,
+				respJson
+			);
+
 			console.debug("response: ", respJson);
-			if (fromSelection) {
-				editor.replaceSelection(
-					input + "\n\n---\n\n" + respJson + "\n\n---\n\n"
-				);
-			} else {
-				editor.replaceSelection("\n\n---\n\n" + respJson);
-			}
+			this.app.vault.modify(noteFile, output);
+			// if (fromSelection) {
+			// 	editor.replaceSelection(
+			// 		input + "\n\n---\n\n" + respJson + "\n\n---\n\n"
+			// 	);
+			// } else {
+			// 	editor.replaceSelection("\n\n---\n\n" + respJson);
+			// }
 		} catch (e) {
 			console.error(e);
 			notice.hide();
@@ -417,7 +437,6 @@ export default class CloudAtlasPlugin extends Plugin {
 				if (subfolder.children) {
 					return this.addNewCommand(this, subfolder.name);
 				}
-				
 			});
 		}
 

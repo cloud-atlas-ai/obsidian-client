@@ -22,7 +22,7 @@ import {
 	CanvasScaffolding,
 	textNode,
 } from "./canvas";
-import { AdditionalContext, Payload, User } from "./interfaces";
+import { AdditionalContext, NamedEntity, Payload, User } from "./interfaces";
 import { randomUUID } from "crypto";
 
 const ADDITIONAL_SYSTEM =
@@ -33,6 +33,7 @@ interface CloudAtlasPluginSettings {
 	previewMode: boolean;
 	entityRecognition: boolean;
 	generateEmbeddings: boolean;
+	wikify: string[];
 	canvasResolveLinks: boolean;
 	canvasResolveBacklinks: boolean;
 }
@@ -42,6 +43,7 @@ const DEFAULT_SETTINGS: CloudAtlasPluginSettings = {
 	previewMode: false,
 	entityRecognition: false,
 	generateEmbeddings: false,
+	wikify: [],
 	canvasResolveLinks: false,
 	canvasResolveBacklinks: false,
 };
@@ -104,12 +106,13 @@ export default class CloudAtlasPlugin extends Plugin {
 		Object.assign(user.additional_context, resolvedLinks);
 		Object.assign(user.additional_context, resolvedBacklinks);
 
-		const data = {
+		const data: Payload = {
 			user,
 			system,
 			options: {
 				entity_recognition: false,
 				generate_embeddings: false,
+				wikify: [],
 			},
 		};
 
@@ -120,6 +123,8 @@ export default class CloudAtlasPlugin extends Plugin {
 		if (this.settings.generateEmbeddings) {
 			data.options.generate_embeddings = true as const;
 		}
+
+		data.options.wikify = this.settings.wikify;
 
 		console.debug("data: ", data);
 
@@ -371,6 +376,7 @@ export default class CloudAtlasPlugin extends Plugin {
 			payload: {
 				user: user,
 				system: system_instructions.join("\n"),
+				options: {},
 			},
 			canvas: canvasContent,
 		};
@@ -417,7 +423,6 @@ export default class CloudAtlasPlugin extends Plugin {
 				if (subfolder.children) {
 					return this.addNewCommand(this, subfolder.name);
 				}
-				
 			});
 		}
 
@@ -476,6 +481,31 @@ class CloudAtlasGlobalSettingsTab extends PluginSettingTab {
 		super(app, plugin);
 		this.plugin = plugin;
 	}
+
+	wikifySetting = (containerEl: HTMLElement, namedEntity: NamedEntity) => {
+		new Setting(containerEl)
+			.setName("Person")
+			.setDesc("Wikify person names in results")
+			.addToggle((toggle) =>
+				toggle
+					.setValue(this.plugin.settings.wikify.includes(namedEntity))
+					.onChange(async (value) => {
+						// Check if value is already in array, remove if so, add if not
+						if (value) {
+							this.plugin.settings.wikify.push(
+								NamedEntity.Person
+							);
+						} else {
+							this.plugin.settings.wikify =
+								this.plugin.settings.wikify.filter(
+									(entity) => entity !== namedEntity
+								);
+						}
+						console.log(this.plugin.settings.wikify);
+						await this.plugin.saveSettings();
+					})
+			);
+	};
 
 	display(): void {
 		const { containerEl } = this;
@@ -536,6 +566,10 @@ class CloudAtlasGlobalSettingsTab extends PluginSettingTab {
 						await this.plugin.saveSettings();
 					})
 			);
+
+		containerEl.createEl("h1", { text: "Wikify" });
+
+		this.wikifySetting(containerEl, NamedEntity.Person);
 
 		containerEl.createEl("h1", { text: "Canvas Flows" });
 

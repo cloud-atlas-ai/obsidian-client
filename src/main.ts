@@ -22,7 +22,7 @@ import {
 	CanvasScaffolding,
 	textNode,
 } from "./canvas";
-import { AdditionalContext, Payload, User } from "./interfaces";
+import { AdditionalContext, Payload, User, FlowConfig } from "./interfaces";
 import { randomUUID } from "crypto";
 
 const ADDITIONAL_SYSTEM =
@@ -62,8 +62,29 @@ const animateNotice = (notice: Notice) => {
 	noticeTimeout = setTimeout(() => animateNotice(notice), 500);
 };
 
+
+import { load as parseYaml } from "js-yaml";
+
 export default class CloudAtlasPlugin extends Plugin {
 	settings: CloudAtlasPluginSettings;
+
+	parseFlowFile = (content: string): FlowConfig => {
+		const frontMatterRegex = /---\s*([\s\S]*?)\s*---/;
+		const match = frontMatterRegex.exec(content);
+
+		let properties: { [key: string]: string } = {}; // Add type assertion here
+
+		if (match) {
+			const frontMatter = match[1];
+			properties = parseYaml(frontMatter) as { [key: string]: string };
+		}
+
+		const userPrompt = content.replace(frontMatterRegex, "").trim();
+		const system_instructions = properties["system_instructions"] as string ? properties["system_instructions"] : "You are a helpful assistant.";
+		const mode = properties["mode"] as string ? properties["mode"] : "append";
+
+		return { userPrompt: userPrompt, system_instructions: system_instructions, mode: mode };
+	};
 
 	runFlow = async (editor: Editor, flow: string) => {
 		const noteFile = this.app.workspace.getActiveFile();
@@ -82,9 +103,9 @@ export default class CloudAtlasPlugin extends Plugin {
 		if (fromSelection) {
 			editor.replaceSelection(
 				input +
-					"\n\n---\n\n" +
-					`\u{1F4C4}\u{2194}\u{1F916}` +
-					"\n\n---\n\n"
+				"\n\n---\n\n" +
+				`\u{1F4C4}\u{2194}\u{1F916}` +
+				"\n\n---\n\n"
 			);
 		} else {
 			editor.replaceSelection(
@@ -92,20 +113,18 @@ export default class CloudAtlasPlugin extends Plugin {
 			);
 		}
 
-		const userPromptPath = `CloudAtlas/${flow}/user_prompt.md`;
-		const systemPath = `CloudAtlas/${flow}/system.md`;
-
-		const userPrompt = (await this.readNote(userPromptPath)) || "";
+		const flowFilePath = `CloudAtlas/${flow}.flow`;
+		const flowFileContent = await this.readNote(flowFilePath);
+		const flowConfig = this.parseFlowFile(flowFileContent);
 
 		// Initialize the user object with the current page content.
 		const user: User = {
-			user_prompt: userPrompt,
+			user_prompt: flowConfig.userPrompt,
 			input,
 			additional_context: {},
 		};
 
-		let system = await this.readNote(systemPath);
-		system = system ? system : "You are a helpful assistant.";
+		let system = flowConfig.system_instructions;
 		system += "\n\n" + ADDITIONAL_SYSTEM;
 
 		const resolvedLinks = await this.resolveLinksForPath(noteFile.path);
@@ -149,13 +168,7 @@ export default class CloudAtlasPlugin extends Plugin {
 
 			console.debug("response: ", respJson);
 			this.app.vault.modify(noteFile, output);
-			// if (fromSelection) {
-			// 	editor.replaceSelection(
-			// 		input + "\n\n---\n\n" + respJson + "\n\n---\n\n"
-			// 	);
-			// } else {
-			// 	editor.replaceSelection("\n\n---\n\n" + respJson);
-			// }
+
 		} catch (e) {
 			console.error(e);
 			notice.hide();
@@ -400,29 +413,22 @@ export default class CloudAtlasPlugin extends Plugin {
 		await this.loadSettings();
 
 		try {
-			await this.createFolder("CloudAtlas");
-			await this.createFolder("CloudAtlas/example");
-			await this.create(
-				"CloudAtlas/example/system.md",
-				"You are a helpful assistant."
-			);
 
-			await this.create(
-				"CloudAtlas/example/user.md",
-				"What is Cloud Atlas? [[additional context]]\n"
-			);
-			await this.create("CloudAtlas/example/user_prompt.md", "");
-			await this.create(
-				"CloudAtlas/example/additional context.md",
-				"I mean the novel."
-			);
-			await this.create(
-				"CloudAtlas/example/backlink.md",
-				"[[user]]\n\nActually write about the movie as well, but prefix the movie writeup with"
-			);
+			// Register .flow files as markdown files
+			this.registerExtensions(["flow"], "markdown");
+
+			await this.createFolder("CloudAtlas");
+
+			const exampleFlowString =
+`---
+system_instructions: You are a helpful assistant.
+---
+
+Say hello to the user.
+`
+			await this.create("CloudAtlas/example.flow", exampleFlowString);
 
 			await this.createFlow("Example");
-
 			new Notice(
 				"Created CloudAtlas folder with an example flow. Please configure the plugin to use it."
 			);
@@ -430,15 +436,14 @@ export default class CloudAtlasPlugin extends Plugin {
 			console.log("Could not create folder, it likely already exists");
 		}
 
-		const cloudAtlasFolder =
-			this.app.vault.getAbstractFileByPath("CloudAtlas");
-		if (cloudAtlasFolder instanceof TFolder) {
-			cloudAtlasFolder.children.forEach((subfolder: TFolder) => {
-				if (subfolder.children) {
-					return this.addNewCommand(this, subfolder.name);
-				}
-			});
-		}
+		const cloudAtlasFlows = await this.app.vault.getFiles()
+			.filter(file => file.path.startsWith('CloudAtlas/') && file.extension === 'flow');
+
+		// Create commands for each flow
+		cloudAtlasFlows.forEach(flowFile => {
+			const flow = flowFile.path.split('/')[1].split('.flow')[0];
+			this.addNewCommand(this, flow);
+		});
 
 		this.addSettingTab(new CloudAtlasGlobalSettingsTab(this.app, this));
 	}
@@ -452,10 +457,8 @@ export default class CloudAtlasPlugin extends Plugin {
 				const noteFile = this.app.workspace.getActiveFile();
 				if (noteFile) {
 					if (noteFile.path.endsWith(".canvas")) {
-						// console.log("Command can run");
 						if (!checking) {
-							// console.log("Running command");
-							this.canvasOps(noteFile).then(() => {});
+							this.canvasOps(noteFile).then(() => { });
 						}
 						return true;
 					}
@@ -467,12 +470,12 @@ export default class CloudAtlasPlugin extends Plugin {
 			id: `run-flow-${flow}`,
 			name: `Run ${flow} Flow`,
 			editorCallback: async (editor: Editor, view: MarkdownView) => {
-				this.runFlow(editor, flow).then(() => {});
+				this.runFlow(editor, flow).then(() => { });
 			},
 		});
 	}
 
-	onunload() {}
+	onunload() { }
 
 	async loadSettings() {
 		this.settings = Object.assign(

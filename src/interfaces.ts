@@ -12,3 +12,11 @@ export interface User {
 	input: string;
 	additional_context: AdditionalContext;
 }
+
+
+export interface FlowConfig {
+	userPrompt: string;
+	system_instructions: string;
+	mode: string;
+	// Add other flow properties as needed
+}

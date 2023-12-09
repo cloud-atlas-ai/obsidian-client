@@ -29,8 +29,8 @@ Each flow is like having a personal assistant within Obsidian, helping you manag
 
 ## Understanding the Plugin's Functionality
 
-- **Instructions and Prompt**: The plugin reads the `system.md` and `user_prompt.md` files from the relevant subdirectory. The content of `system.md` acts as the instructions or context for the API, and `user_prompt.md` provides a specific prompt or question.
-- **Additional Context**: The plugin analyzes the active note and includes any additional context linked within the note. This includes content from linked Obsidian notes, which is sent as part of the API request.
+- **Instructions and Prompt**: `<flow name>.prompt` files from the `vault>/CloudAtlas` subdirectory. The value of the `system_instruction` property acts as the instructions or context for the API, and the content of the file provides a specific prompt or question.
+- **Additional Context**: The plugin will include all the notes listed in the `additional_context` property. It will also include forward and backlinks from the note you execute the flow in.
 - **API Interaction**: The content of the active note, along with the system instructions, user prompt, and additional context, is sent to an external API. The API enriches and otherwise processes this and returns a response.
 - **Appending API Response**: The response from the API is then automatically appended to the end of the active note, providing insights, answers, or content based on the provided instructions and the serverside processing.
 

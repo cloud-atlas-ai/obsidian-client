@@ -82,8 +82,10 @@ export default class CloudAtlasPlugin extends Plugin {
 		const userPrompt = content.replace(frontMatterRegex, "").trim();
 		const system_instructions = properties["system_instructions"] as string ? properties["system_instructions"] : "You are a helpful assistant.";
 		const mode = properties["mode"] as string ? properties["mode"] : "append";
+		const resolveBacklinks = properties["resolveBacklinks"] ? properties["resolveBacklinks"] === 'true' : false;
+    const resolveForwardLinks = properties["resolveForwardLinks"] ? properties["resolveForwardLinks"] === 'true' : false;
 
-		return { userPrompt: userPrompt, system_instructions: system_instructions, mode: mode };
+		return { userPrompt: userPrompt, system_instructions: system_instructions, mode: mode, resolveBacklinks: resolveBacklinks, resolveForwardLinks: resolveForwardLinks };
 	};
 
 	runFlow = async (editor: Editor, flow: string) => {
@@ -100,6 +102,10 @@ export default class CloudAtlasPlugin extends Plugin {
 			fromSelection = false;
 		}
 
+		const flowFilePath = `CloudAtlas/${flow}.flow`;
+		const flowFileContent = await this.readNote(flowFilePath);
+		const flowConfig = this.parseFlowFile(flowFileContent);
+
 		if (fromSelection) {
 			editor.replaceSelection(
 				input +
@@ -112,10 +118,6 @@ export default class CloudAtlasPlugin extends Plugin {
 				"\n\n---\n\n" + `\u{1F4C4}\u{2194}\u{1F916}` + "\n\n---\n\n"
 			);
 		}
-
-		const flowFilePath = `CloudAtlas/${flow}.flow`;
-		const flowFileContent = await this.readNote(flowFilePath);
-		const flowConfig = this.parseFlowFile(flowFileContent);
 
 		// Initialize the user object with the current page content.
 		const user: User = {
@@ -133,8 +135,18 @@ export default class CloudAtlasPlugin extends Plugin {
 			noteFile.path
 		);
 
-		Object.assign(user.additional_context, resolvedLinks);
-		Object.assign(user.additional_context, resolvedBacklinks);
+		let additionalContext: AdditionalContext = {};
+
+    if (flowConfig.resolveForwardLinks) {
+        const resolvedLinks = await this.resolveLinksForPath(noteFile.path);
+        Object.assign(additionalContext, resolvedLinks);
+    }
+    if (flowConfig.resolveBacklinks) {
+        const resolvedBacklinks = await this.resolveBacklinksForPath(noteFile.path);
+        Object.assign(additionalContext, resolvedBacklinks);
+    }
+
+    user.additional_context = additionalContext;
 
 		const data = {
 			user,
@@ -422,6 +434,8 @@ export default class CloudAtlasPlugin extends Plugin {
 			const exampleFlowString =
 `---
 system_instructions: You are a helpful assistant.
+resolveBacklinks: true
+resolveForwardLinks: true
 ---
 
 Say hello to the user.

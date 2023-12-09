@@ -12,3 +12,13 @@ export interface User {
 	input: string;
 	additional_context: AdditionalContext;
 }
+
+
+export interface FlowConfig {
+	userPrompt: string;
+	system_instructions: string;
+	mode: string;
+	resolveBacklinks: boolean;
+	resolveForwardLinks: boolean;
+	// Add other flow properties as needed
+}

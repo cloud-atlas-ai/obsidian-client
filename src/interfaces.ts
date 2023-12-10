@@ -13,7 +13,6 @@ export interface User {
 	additional_context: AdditionalContext;
 }
 
-
 export interface FlowConfig {
 	userPrompt: string;
 	system_instructions: string | null;
@@ -21,5 +20,6 @@ export interface FlowConfig {
 	resolveBacklinks: boolean | null;
 	resolveForwardLinks: boolean | null;
 	exclusionPatterns: string[];
+	frontMatterOffset: number;
 	// Add other flow properties as needed
 }

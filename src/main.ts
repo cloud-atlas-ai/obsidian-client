@@ -204,7 +204,7 @@ export default class CloudAtlasPlugin extends Plugin {
 	runFlow = async (editor: Editor, flow: string) => {
 		const inputFlowFile = this.app.workspace.getActiveFile();
 		const templateFlowFilePath = `CloudAtlas/${flow}.flow.md`;
-		const dataFlowFilePath = `CloudAtlas/${flow}.md`;
+		const dataFlowFilePath = `CloudAtlas/${flow}.flowdata.md`;
 		const dataIsInput = inputFlowFile?.path === dataFlowFilePath;
 
 		const input = editor.getSelection();

@@ -16,9 +16,10 @@ export interface User {
 
 export interface FlowConfig {
 	userPrompt: string;
-	system_instructions: string;
-	mode: string;
-	resolveBacklinks: boolean;
-	resolveForwardLinks: boolean;
+	system_instructions: string | null;
+	mode: string | null;
+	resolveBacklinks: boolean | null;
+	resolveForwardLinks: boolean | null;
+	exclusionPatterns: string[];
 	// Add other flow properties as needed
 }

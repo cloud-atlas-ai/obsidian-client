@@ -1,12 +1,10 @@
 import {
-	App,
 	Editor,
 	MarkdownView,
 	Notice,
 	Plugin,
-	PluginSettingTab,
-	Setting,
 	TFile,
+	normalizePath,
 } from "obsidian";
 import {
 	CANVAS_CONTENT,
@@ -21,96 +19,32 @@ import {
 	CanvasScaffolding,
 	textNode,
 } from "./canvas";
-import {
-	AdditionalContext,
-	Payload,
-	User,
-	FlowConfig,
-	NamedEntity,
-} from "./interfaces";
+import { AdditionalContext, Payload, User, FlowConfig } from "./interfaces";
 import { randomUUID } from "crypto";
-
-const ADDITIONAL_SYSTEM =
-	"Use the content in 'input' as the main context, consider the 'additional_context' map for related information, and respond based on the instructions in 'user_prompt'. Assist the user by synthesizing information from these elements into coherent and useful insights or actions.";
-
-interface CloudAtlasPluginSettings {
-	apiKey: string;
-	previewMode: boolean;
-	entityRecognition: boolean;
-	generateEmbeddings: boolean;
-	wikify: string[];
-	canvasResolveLinks: boolean;
-	canvasResolveBacklinks: boolean;
-}
-
-const DEFAULT_SETTINGS: CloudAtlasPluginSettings = {
-	apiKey: "",
-	previewMode: false,
-	entityRecognition: false,
-	generateEmbeddings: false,
-	wikify: [],
-	canvasResolveLinks: false,
-	canvasResolveBacklinks: false,
-};
+import { combinePayloads } from "./utils";
+import {
+	CloudAtlasGlobalSettingsTab,
+	CloudAtlasPluginSettings,
+} from "./settings";
+import { ADDITIONAL_SYSTEM, DEFAULT_SETTINGS } from "./constants";
 
 let noticeTimeout: NodeJS.Timeout;
 
 const animateNotice = (notice: Notice) => {
 	let message = notice.noticeEl.innerText;
-	const dots = message.split(" ")[message.split(" ").length - 1];
-	if (dots.length == 1) {
-		message = message.replace(" .", " ..");
-	} else if (dots.length == 2) {
-		message = message.replace(" ..", " ...");
-	} else if (dots.length == 3) {
-		message = message.replace(" ...", " .");
+	const dots = [...message].filter((c) => c === ".").length;
+	if (dots == 0) {
+		message = message.replace("    ", " .  ");
+	} else if (dots == 1) {
+		message = message.replace(" .  ", " .. ");
+	} else if (dots == 2) {
+		message = message.replace(" .. ", " ...");
+	} else if (dots == 3) {
+		message = message.replace(" ...", "    ");
 	}
 	notice.setMessage(message);
 	noticeTimeout = setTimeout(() => animateNotice(notice), 500);
 };
-
-function joinStrings(
-	first: string | undefined,
-	second: string | undefined
-): string {
-	return [first, second].filter((s) => s).join("\n");
-}
-
-function combinePayloads(
-	base: Payload | null,
-	override: Payload | null
-): Payload {
-	if (!base) {
-		if (!override) {
-			throw new Error("No base or override payload");
-		}
-		return override;
-	}
-
-	if (!override) {
-		return base;
-	}
-	const additional_context: AdditionalContext = {};
-	Object.assign(additional_context, base.user.additional_context);
-	Object.assign(additional_context, override.user.additional_context);
-
-	const input = joinStrings(base.user.input, override.user.input);
-	const user_prompt = joinStrings(
-		base.user.user_prompt,
-		override.user.user_prompt
-	);
-
-	const user: User = {
-		user_prompt,
-		input,
-		additional_context,
-	};
-
-	return {
-		user,
-		system: override.system || base.system,
-	};
-}
 
 export default class CloudAtlasPlugin extends Plugin {
 	settings: CloudAtlasPluginSettings;
@@ -218,8 +152,12 @@ export default class CloudAtlasPlugin extends Plugin {
 
 	runFlow = async (editor: Editor, flow: string) => {
 		const inputFlowFile = this.app.workspace.getActiveFile();
-		const templateFlowFilePath = `CloudAtlas/${flow}.flow.md`;
-		const dataFlowFilePath = `CloudAtlas/${flow}.flowdata.md`;
+		const templateFlowFilePath = normalizePath(
+			`CloudAtlas/${flow}.flow.md`
+		);
+		const dataFlowFilePath = normalizePath(
+			`CloudAtlas/${flow}.flowdata.md`
+		);
 		const dataIsInput = inputFlowFile?.path === dataFlowFilePath;
 
 		const input = editor.getSelection();
@@ -265,7 +203,7 @@ export default class CloudAtlasPlugin extends Plugin {
 
 		console.debug("data: ", payload);
 
-		const notice = new Notice(`Running ${flow} Flow ...`, 0);
+		const notice = new Notice(`Running ${flow} flow ...`, 0);
 		animateNotice(notice);
 
 		try {
@@ -424,7 +362,7 @@ export default class CloudAtlasPlugin extends Plugin {
 		}
 		// console.log(data);
 
-		const notice = new Notice(`Running Canvas Flow ...`, 0);
+		const notice = new Notice(`Running Canvas flow ...`, 0);
 		animateNotice(notice);
 
 		try {
@@ -627,130 +565,5 @@ Say hello to the user.
 
 	async saveSettings() {
 		await this.saveData(this.settings);
-	}
-}
-
-// TODO: If we only have one tab, we shouldn't have multiple tabs or this will get rejected when we submit it to the store.
-class CloudAtlasGlobalSettingsTab extends PluginSettingTab {
-	plugin: CloudAtlasPlugin;
-
-	constructor(app: App, plugin: CloudAtlasPlugin) {
-		super(app, plugin);
-		this.plugin = plugin;
-	}
-
-	wikifySetting = (containerEl: HTMLElement, namedEntity: NamedEntity) => {
-		new Setting(containerEl)
-			.setName(namedEntity === NamedEntity.Person ? "People" : "Locations" )
-			.setDesc("Make entity names into wikilinks")
-			.addToggle((toggle) =>
-				toggle
-					.setValue(this.plugin.settings.wikify.includes(namedEntity))
-					.onChange(async (value) => {
-						// Check if value is already in array, remove if so, add if not
-						if (value) {
-							this.plugin.settings.wikify.push(namedEntity);
-						} else {
-							this.plugin.settings.wikify =
-								this.plugin.settings.wikify.filter(
-									(entity) => entity !== namedEntity
-								);
-						}
-						console.log(this.plugin.settings.wikify);
-						await this.plugin.saveSettings();
-					})
-			);
-	};
-
-	display(): void {
-		const { containerEl } = this;
-
-		containerEl.empty();
-
-		containerEl.createEl("h1", { text: "General" });
-
-		new Setting(containerEl)
-			.setName("API Key")
-			.setDesc("Cloud Atlas API key")
-			.addText((text) =>
-				text
-					.setPlaceholder("Enter API key")
-					.setValue(this.plugin.settings.apiKey)
-					.onChange(async (value) => {
-						this.plugin.settings.apiKey = value;
-						await this.plugin.saveSettings();
-					})
-			);
-
-		new Setting(containerEl)
-			.setName("Preview mode")
-			.setDesc("Use unstable API with more features and less stability")
-			.addToggle((toggle) =>
-				toggle
-					.setValue(this.plugin.settings.previewMode)
-					.onChange(async (value) => {
-						this.plugin.settings.previewMode = value;
-						await this.plugin.saveSettings();
-					})
-			);
-
-		new Setting(containerEl)
-			.setName("Entity recognition")
-			.setDesc(
-				"Run named entity recognition on submitted notes, results in more relevant context entries, leading to more useful returns"
-			)
-			.addToggle((toggle) =>
-				toggle
-					.setValue(this.plugin.settings.entityRecognition)
-					.onChange(async (value) => {
-						this.plugin.settings.entityRecognition = value;
-						await this.plugin.saveSettings();
-					})
-			);
-
-		new Setting(containerEl)
-			.setName("Generate embeddings")
-			.setDesc(
-				"Generate embeddings for submitted notes, allows us to use retrieveal augmented generation"
-			)
-			.addToggle((toggle) =>
-				toggle
-					.setValue(this.plugin.settings.generateEmbeddings)
-					.onChange(async (value) => {
-						this.plugin.settings.generateEmbeddings = value;
-						await this.plugin.saveSettings();
-					})
-			);
-
-		containerEl.createEl("h1", { text: "Wikify" });
-
-		this.wikifySetting(containerEl, NamedEntity.Person);
-		this.wikifySetting(containerEl, NamedEntity.Location);
-
-		containerEl.createEl("h1", { text: "Canvas Flows" });
-
-		new Setting(containerEl)
-			.setName("Resolve links")
-			.setDesc("Adds resolved links as additional prompt context")
-			.addToggle((toggle) =>
-				toggle
-					.setValue(this.plugin.settings.canvasResolveLinks)
-					.onChange(async (value) => {
-						this.plugin.settings.canvasResolveLinks = value;
-						await this.plugin.saveSettings();
-					})
-			);
-
-		new Setting(containerEl)
-			.setName("Resolve backlinks")
-			.setDesc("Adds resolved backlinks as additional prompt context")
-			.addToggle((toggle) =>
-				toggle
-					.setValue(this.plugin.settings.canvasResolveBacklinks)
-					.onChange(async (value) => {
-						this.plugin.settings.canvasResolveBacklinks = value;
-						await this.plugin.saveSettings();
-					})
-			);
 	}
 }

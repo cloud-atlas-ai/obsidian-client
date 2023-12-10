@@ -65,6 +65,8 @@ The front matter of the file defines the flow settings.
 - The `exclusionPattern` property defines a regex of files to not resolve. You might want to exclude files that contain sensitive information or templates.
 - The `mode` property will be used to define the mode of the flow. The types we are developing are `append`, `replace`, and `interactive`.
 
+#### Customizing a Flow with your own content
+
 You can further configure a flow. For example, if you want to customize the demo flow, you can create a `demo.md` file in the `CloudAtlas` subdirectory:
 
 - This file will be included in the additional context sent to the API.

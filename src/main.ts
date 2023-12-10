@@ -141,7 +141,7 @@ export default class CloudAtlasPlugin extends Plugin {
 		const userFlowConfig = await this.parseUserFlowFile(flow);
 
 		let flowConfig: FlowConfig = {
-			userPrompt: defaultFlowConfig.userPrompt,
+			userPrompt: defaultFlowConfig.userPrompt + "\n" + (userFlowConfig?.userPrompt || ""),
 			system_instructions: userFlowConfig?.system_instructions || defaultFlowConfig.system_instructions,
 			mode: userFlowConfig?.mode || defaultFlowConfig.mode || "append",
 			resolveBacklinks: userFlowConfig?.resolveBacklinks || defaultFlowConfig.resolveBacklinks || false,

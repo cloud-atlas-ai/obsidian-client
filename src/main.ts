@@ -109,12 +109,23 @@ export default class CloudAtlasPlugin extends Plugin {
 
 	pathToPayload = async (
 		filePath: string,
-		input?: string
-	): Promise<Payload> => {
+		input?: string,
+		previousConfig?: FlowConfig
+	): Promise<{ payload: Payload; config: FlowConfig }> => {
 		const flowConfig = await this.flowConfigFromPath(filePath);
 		const flowFile = this.app.vault.getAbstractFileByPath(
 			filePath
 		) as TFile;
+
+		if (previousConfig) {
+			if (flowConfig?.resolveForwardLinks === undefined) {
+				flowConfig.resolveForwardLinks =
+					previousConfig.resolveForwardLinks;
+			}
+			if (flowConfig?.resolveBacklinks === undefined) {
+				flowConfig.resolveBacklinks = previousConfig.resolveBacklinks;
+			}
+		}
 
 		let flowContent = await this.app.vault.read(flowFile);
 		flowContent = flowContent
@@ -166,7 +177,7 @@ export default class CloudAtlasPlugin extends Plugin {
 			},
 		};
 
-		return data;
+		return { payload: data, config: flowConfig };
 	};
 
 	flowConfigFromPath = async (filePath: string): Promise<FlowConfig> => {
@@ -216,16 +227,18 @@ export default class CloudAtlasPlugin extends Plugin {
 			);
 		}
 
-		const inputPayload = await this.pathToPayload(
-			inputFlowFile.path,
-			input
-		);
-		const templateFlowPayload = await this.pathToPayload(
-			templateFlowFilePath
-		);
-		const dataFlowPayload = dataIsInput
-			? null
+		const { payload: templateFlowPayload, config: templateFlowConfig } =
+			await this.pathToPayload(templateFlowFilePath);
+
+		const { payload: dataFlowPayload, config: dataFlowConfig } = dataIsInput
+			? { payload: null, config: templateFlowConfig }
 			: await this.pathToPayload(dataFlowFilePath);
+
+		const { payload: inputPayload } = await this.pathToPayload(
+			inputFlowFile.path,
+			input,
+			dataFlowConfig
+		);
 
 		let payload = combinePayloads(templateFlowPayload, dataFlowPayload);
 		payload = combinePayloads(payload, inputPayload);

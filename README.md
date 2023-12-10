@@ -71,13 +71,12 @@ You can further configure a flow. For example, if you want to customize the demo
 
 - This file will be included in the additional context sent to the API.
 - The content in it will also be resolved for backlinks and forward links as with the note.
-- The front matter of the file can be used to override the flow settings defined in the `demo.md` file.
+- The front matter of the file can be used to override the flow settings defined in the `demo.flowdata.md` file.
 
-e.g. `demo.md`:
+e.g. `demo.flowdata.md`:
 
 ```markdown
 ---
-system_instructions: You are a helpful assistant.
 resolveBacklinks: false
 resolveForwardLinks: false
 ---

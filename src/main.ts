@@ -21,7 +21,13 @@ import {
 	CanvasScaffolding,
 	textNode,
 } from "./canvas";
-import { AdditionalContext, Payload, User, FlowConfig } from "./interfaces";
+import {
+	AdditionalContext,
+	Payload,
+	User,
+	FlowConfig,
+	NamedEntity,
+} from "./interfaces";
 import { randomUUID } from "crypto";
 
 const ADDITIONAL_SYSTEM =
@@ -32,6 +38,7 @@ interface CloudAtlasPluginSettings {
 	previewMode: boolean;
 	entityRecognition: boolean;
 	generateEmbeddings: boolean;
+	wikify: string[];
 	canvasResolveLinks: boolean;
 	canvasResolveBacklinks: boolean;
 }
@@ -41,6 +48,7 @@ const DEFAULT_SETTINGS: CloudAtlasPluginSettings = {
 	previewMode: false,
 	entityRecognition: false,
 	generateEmbeddings: false,
+	wikify: [],
 	canvasResolveLinks: false,
 	canvasResolveBacklinks: false,
 };
@@ -110,74 +118,81 @@ export default class CloudAtlasPlugin extends Plugin {
 	pathToPayload = async (
 		filePath: string,
 		input?: string,
-		previousConfig?: FlowConfig
-	): Promise<{ payload: Payload; config: FlowConfig }> => {
-		const flowConfig = await this.flowConfigFromPath(filePath);
-		const flowFile = this.app.vault.getAbstractFileByPath(
-			filePath
-		) as TFile;
+		previousConfig?: FlowConfig | null
+	): Promise<{ payload: Payload | null; config: FlowConfig | null }> => {
+		try {
+			const flowConfig = await this.flowConfigFromPath(filePath);
+			const flowFile = this.app.vault.getAbstractFileByPath(
+				filePath
+			) as TFile;
 
-		if (previousConfig) {
-			if (flowConfig?.resolveForwardLinks === undefined) {
-				flowConfig.resolveForwardLinks =
-					previousConfig.resolveForwardLinks;
+			if (previousConfig) {
+				if (flowConfig?.resolveForwardLinks === undefined) {
+					flowConfig.resolveForwardLinks =
+						previousConfig.resolveForwardLinks;
+				}
+				if (flowConfig?.resolveBacklinks === undefined) {
+					flowConfig.resolveBacklinks =
+						previousConfig.resolveBacklinks;
+				}
 			}
-			if (flowConfig?.resolveBacklinks === undefined) {
-				flowConfig.resolveBacklinks = previousConfig.resolveBacklinks;
+
+			let flowContent = await this.app.vault.read(flowFile);
+			flowContent = flowContent
+				.substring(flowConfig.frontMatterOffset)
+				.trim();
+
+			console.log(flowContent, flowConfig.frontMatterOffset);
+
+			// Support input from selection
+			input = input ? input : flowContent;
+
+			const user: User = {
+				user_prompt: flowConfig.userPrompt,
+				input,
+				additional_context: {},
+			};
+
+			console.debug(user);
+
+			const exclusionPatterns: RegExp[] =
+				this.parseExclusionPatterns(flowConfig?.exclusionPatterns) ||
+				[];
+
+			const additionalContext: AdditionalContext = {};
+
+			if (flowConfig.resolveForwardLinks) {
+				const resolvedLinks = await this.resolveLinksForPath(
+					filePath,
+					exclusionPatterns
+				);
+				Object.assign(additionalContext, resolvedLinks);
 			}
+
+			if (flowConfig.resolveBacklinks) {
+				const resolvedBacklinks = await this.resolveBacklinksForPath(
+					filePath,
+					exclusionPatterns
+				);
+				Object.assign(additionalContext, resolvedBacklinks);
+			}
+
+			user.additional_context = additionalContext;
+
+			const data = {
+				user,
+				system: flowConfig.system_instructions,
+				options: {
+					entity_recognition: false,
+					generate_embeddings: false,
+				},
+			};
+
+			return { payload: data, config: flowConfig };
+		} catch (e) {
+			console.error(e);
+			return { payload: null, config: null };
 		}
-
-		let flowContent = await this.app.vault.read(flowFile);
-		flowContent = flowContent
-			.substring(flowConfig.frontMatterOffset)
-			.trim();
-
-		console.log(flowContent, flowConfig.frontMatterOffset);
-
-		// Support input from selection
-		input = input ? input : flowContent;
-
-		const user: User = {
-			user_prompt: flowConfig.userPrompt,
-			input,
-			additional_context: {},
-		};
-
-		console.debug(user);
-
-		const exclusionPatterns: RegExp[] =
-			this.parseExclusionPatterns(flowConfig?.exclusionPatterns) || [];
-
-		const additionalContext: AdditionalContext = {};
-
-		if (flowConfig.resolveForwardLinks) {
-			const resolvedLinks = await this.resolveLinksForPath(
-				filePath,
-				exclusionPatterns
-			);
-			Object.assign(additionalContext, resolvedLinks);
-		}
-
-		if (flowConfig.resolveBacklinks) {
-			const resolvedBacklinks = await this.resolveBacklinksForPath(
-				filePath,
-				exclusionPatterns
-			);
-			Object.assign(additionalContext, resolvedBacklinks);
-		}
-
-		user.additional_context = additionalContext;
-
-		const data = {
-			user,
-			system: flowConfig.system_instructions,
-			options: {
-				entity_recognition: false,
-				generate_embeddings: false,
-			},
-		};
-
-		return { payload: data, config: flowConfig };
 	};
 
 	flowConfigFromPath = async (filePath: string): Promise<FlowConfig> => {
@@ -237,7 +252,7 @@ export default class CloudAtlasPlugin extends Plugin {
 		const { payload: inputPayload } = await this.pathToPayload(
 			inputFlowFile.path,
 			input,
-			dataFlowConfig
+			dataFlowConfig || templateFlowConfig
 		);
 
 		let payload = combinePayloads(templateFlowPayload, dataFlowPayload);
@@ -246,6 +261,7 @@ export default class CloudAtlasPlugin extends Plugin {
 		payload.options = payload.options || {};
 		payload.options.entity_recognition = this.settings.entityRecognition;
 		payload.options.generate_embeddings = this.settings.generateEmbeddings;
+		payload.options.wikify = this.settings.wikify;
 
 		console.debug("data: ", payload);
 
@@ -623,6 +639,29 @@ class CloudAtlasGlobalSettingsTab extends PluginSettingTab {
 		this.plugin = plugin;
 	}
 
+	wikifySetting = (containerEl: HTMLElement, namedEntity: NamedEntity) => {
+		new Setting(containerEl)
+			.setName(namedEntity === NamedEntity.Person ? "People" : "Locations" )
+			.setDesc("Make entity names into wikilinks")
+			.addToggle((toggle) =>
+				toggle
+					.setValue(this.plugin.settings.wikify.includes(namedEntity))
+					.onChange(async (value) => {
+						// Check if value is already in array, remove if so, add if not
+						if (value) {
+							this.plugin.settings.wikify.push(namedEntity);
+						} else {
+							this.plugin.settings.wikify =
+								this.plugin.settings.wikify.filter(
+									(entity) => entity !== namedEntity
+								);
+						}
+						console.log(this.plugin.settings.wikify);
+						await this.plugin.saveSettings();
+					})
+			);
+	};
+
 	display(): void {
 		const { containerEl } = this;
 
@@ -682,6 +721,11 @@ class CloudAtlasGlobalSettingsTab extends PluginSettingTab {
 						await this.plugin.saveSettings();
 					})
 			);
+
+		containerEl.createEl("h1", { text: "Wikify" });
+
+		this.wikifySetting(containerEl, NamedEntity.Person);
+		this.wikifySetting(containerEl, NamedEntity.Location);
 
 		containerEl.createEl("h1", { text: "Canvas Flows" });
 

@@ -7,6 +7,7 @@ export interface Payload {
 export interface Options {
 	generate_embeddings?: boolean;
 	entity_recognition?: boolean;
+    wikify?: string[];
 }
 
 export interface AdditionalContext {
@@ -28,4 +29,12 @@ export interface FlowConfig {
 	exclusionPatterns: string[];
 	frontMatterOffset: number;
 	// Add other flow properties as needed
+}
+
+export enum NamedEntity {
+    Person = "Person",
+    Location = "Location",
+    Organization = "Organization",
+    // List of supported entities -> https://learn.microsoft.com/en-us/azure/ai-services/language-service/named-entity-recognition/concepts/ga-preview-mapping 
+    // Add an entry here, and in the settings builder to add new category support
 }

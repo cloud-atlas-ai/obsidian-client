@@ -61,8 +61,113 @@ const animateNotice = (notice: Notice) => {
 	noticeTimeout = setTimeout(() => animateNotice(notice), 500);
 };
 
+function joinStrings(
+	first: string | undefined,
+	second: string | undefined
+): string {
+	return [first, second].filter((s) => s).join("\n");
+}
+
+function combinePayloads(
+	base: Payload | null,
+	override: Payload | null
+): Payload {
+	if (!base) {
+		if (!override) {
+			throw new Error("No base or override payload");
+		}
+		return override;
+	}
+
+	if (!override) {
+		return base;
+	}
+	const additional_context: AdditionalContext = {};
+	Object.assign(additional_context, base.user.additional_context);
+	Object.assign(additional_context, override.user.additional_context);
+
+	const input = joinStrings(base.user.input, override.user.input);
+	const user_prompt = joinStrings(
+		base.user.user_prompt,
+		override.user.user_prompt
+	);
+
+	const user: User = {
+		user_prompt,
+		input,
+		additional_context,
+	};
+
+	return {
+		user,
+		system: override.system || base.system,
+	};
+}
+
 export default class CloudAtlasPlugin extends Plugin {
 	settings: CloudAtlasPluginSettings;
+
+	pathToPayload = async (
+		filePath: string,
+		input?: string
+	): Promise<Payload> => {
+		const flowConfig = await this.flowConfigFromPath(filePath);
+		const flowFile = this.app.vault.getAbstractFileByPath(
+			filePath
+		) as TFile;
+
+		let flowContent = await this.app.vault.read(flowFile);
+		flowContent = flowContent
+			.substring(flowConfig.frontMatterOffset)
+			.trim();
+
+		console.log(flowContent, flowConfig.frontMatterOffset);
+
+		// Support input from selection
+		input = input ? input : flowContent;
+
+		const user: User = {
+			user_prompt: flowConfig.userPrompt,
+			input,
+			additional_context: {},
+		};
+
+		console.debug(user);
+
+		const exclusionPatterns: RegExp[] =
+			this.parseExclusionPatterns(flowConfig?.exclusionPatterns) || [];
+
+		const additionalContext: AdditionalContext = {};
+
+		if (flowConfig.resolveForwardLinks) {
+			const resolvedLinks = await this.resolveLinksForPath(
+				filePath,
+				exclusionPatterns
+			);
+			Object.assign(additionalContext, resolvedLinks);
+		}
+
+		if (flowConfig.resolveBacklinks) {
+			const resolvedBacklinks = await this.resolveBacklinksForPath(
+				filePath,
+				exclusionPatterns
+			);
+			Object.assign(additionalContext, resolvedBacklinks);
+		}
+
+		user.additional_context = additionalContext;
+
+		const data = {
+			user,
+			system: flowConfig.system_instructions,
+			options: {
+				entity_recognition: false,
+				generate_embeddings: false,
+			},
+		};
+
+		return data;
+	};
 
 	flowConfigFromPath = async (filePath: string): Promise<FlowConfig> => {
 		const metadata = await this.app.metadataCache.getFileCache(
@@ -86,52 +191,17 @@ export default class CloudAtlasPlugin extends Plugin {
 	};
 
 	runFlow = async (editor: Editor, flow: string) => {
-		const noteFile = this.app.workspace.getActiveFile();
-		const userFlowFilePath = `CloudAtlas/${flow}.md`;
+		const inputFlowFile = this.app.workspace.getActiveFile();
+		const templateFlowFilePath = `CloudAtlas/${flow}.flow.md`;
+		const dataFlowFilePath = `CloudAtlas/${flow}.md`;
+		const dataIsInput = inputFlowFile?.path === dataFlowFilePath;
 
-		let input = editor.getSelection();
-		let fromSelection = true;
+		const input = editor.getSelection();
+		const fromSelection = Boolean(input);
 
-		if (!noteFile) {
+		if (!inputFlowFile) {
 			return;
 		}
-
-		const defaultFlowConfig = await this.flowConfigFromPath(noteFile.path);
-		const userFlowConfig = await this.flowConfigFromPath(userFlowFilePath);
-
-		const flowConfig: FlowConfig = {
-			userPrompt: [
-				defaultFlowConfig?.userPrompt,
-				userFlowConfig?.userPrompt,
-			]
-				.filter((p) => p)
-				.join("\n"),
-			system_instructions:
-				userFlowConfig?.system_instructions ||
-				defaultFlowConfig?.system_instructions,
-			mode: userFlowConfig?.mode || defaultFlowConfig?.mode || "append",
-			resolveBacklinks:
-				userFlowConfig?.resolveBacklinks ||
-				defaultFlowConfig?.resolveBacklinks ||
-				false,
-			resolveForwardLinks:
-				userFlowConfig?.resolveForwardLinks ||
-				defaultFlowConfig?.resolveForwardLinks ||
-				false,
-			exclusionPatterns: defaultFlowConfig?.exclusionPatterns?.concat(
-				userFlowConfig?.exclusionPatterns || []
-			),
-			frontMatterOffset: defaultFlowConfig?.frontMatterOffset || 0,
-		};
-
-		if (!input) {
-			// if there is no text selection, read the content of the current note file.
-			const noteFileContent = await this.app.vault.read(noteFile);
-			input = noteFileContent.substring(flowConfig.frontMatterOffset).trim();
-			fromSelection = false;
-		}
-
-		console.debug("flowConfig: ", flowConfig);
 
 		if (fromSelection) {
 			editor.replaceSelection(
@@ -146,80 +216,41 @@ export default class CloudAtlasPlugin extends Plugin {
 			);
 		}
 
-		// Initialize the user object with the current page content.
-		const user: User = {
-			user_prompt: flowConfig.userPrompt,
-			input,
-			additional_context: {},
-		};
+		const inputPayload = await this.pathToPayload(
+			inputFlowFile.path,
+			input
+		);
+		const templateFlowPayload = await this.pathToPayload(
+			templateFlowFilePath
+		);
+		const dataFlowPayload = dataIsInput
+			? null
+			: await this.pathToPayload(dataFlowFilePath);
 
-		const exclusionPatterns: RegExp[] =
-			this.parseExclusionPatterns(flowConfig?.exclusionPatterns) || [];
+		let payload = combinePayloads(templateFlowPayload, dataFlowPayload);
+		payload = combinePayloads(payload, inputPayload);
 
-		const additionalContext: AdditionalContext = {};
+		payload.options = payload.options || {};
+		payload.options.entity_recognition = this.settings.entityRecognition;
+		payload.options.generate_embeddings = this.settings.generateEmbeddings;
 
-		if (flowConfig.resolveForwardLinks) {
-			let resolvedLinks = await this.resolveLinksForPath(
-				noteFile.path,
-				exclusionPatterns
-			);
-			Object.assign(additionalContext, resolvedLinks);
-			resolvedLinks = await this.resolveLinksForPath(
-				userFlowFilePath,
-				exclusionPatterns
-			);
-			Object.assign(additionalContext, resolvedLinks);
-		}
-
-		if (flowConfig.resolveBacklinks) {
-			let resolvedBacklinks = await this.resolveBacklinksForPath(
-				noteFile.path,
-				exclusionPatterns
-			);
-			Object.assign(additionalContext, resolvedBacklinks);
-			resolvedBacklinks = await this.resolveBacklinksForPath(
-				userFlowFilePath,
-				exclusionPatterns
-			);
-			Object.assign(additionalContext, resolvedBacklinks);
-		}
-
-		user.additional_context = additionalContext;
-
-		const data = {
-			user,
-			system:
-				flowConfig.system_instructions ||
-				"You are a helpful assistant.",
-			options: {
-				entity_recognition: false,
-				generate_embeddings: false,
-			},
-		};
-
-		if (this.settings.entityRecognition) {
-			data.options.entity_recognition = true as const;
-		}
-
-		if (this.settings.generateEmbeddings) {
-			data.options.generate_embeddings = true as const;
-		}
-
-		console.debug("data: ", data);
+		console.debug("data: ", payload);
 
 		const notice = new Notice(`Running ${flow} Flow ...`, 0);
 		animateNotice(notice);
 
 		try {
-			const respJson = await this.apiFetch(data);
-			const currentNoteContents = await this.app.vault.read(noteFile);
+			const respJson = await this.apiFetch(payload);
+			const currentNoteContents = await this.app.vault.read(
+				inputFlowFile
+			);
 			const output = currentNoteContents.replace(
 				`\u{1F4C4}\u{2194}\u{1F916}`,
 				respJson
 			);
 
 			console.debug("response: ", respJson);
-			this.app.vault.modify(noteFile, output);
+			this.app.vault.modify(inputFlowFile, output);
 		} catch (e) {
 			console.error(e);
 			notice.hide();
@@ -488,7 +519,7 @@ export default class CloudAtlasPlugin extends Plugin {
 
 		try {
 			// Register .flow files as markdown files
-			this.registerExtensions(["flow"], "markdown");
+			// this.registerExtensions(["flow"], "markdown");
 
 			await this.createFolder("CloudAtlas");
 
@@ -516,7 +547,7 @@ Say hello to the user.
 			.filter(
 				(file) =>
 					file.path.startsWith("CloudAtlas/") &&
-					file.extension === "flow"
+					file.path.endsWith("flow.md")
 			);
 
 		// Create commands for each flow

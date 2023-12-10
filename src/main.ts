@@ -252,7 +252,7 @@ export default class CloudAtlasPlugin extends Plugin {
 		const { payload: inputPayload } = await this.pathToPayload(
 			inputFlowFile.path,
 			input,
-			dataFlowConfig
+			dataFlowConfig || templateFlowConfig
 		);
 
 		let payload = combinePayloads(templateFlowPayload, dataFlowPayload);

@@ -545,7 +545,7 @@ exclusionPattern: ["^Private/", ".*-confidential.*"]
 
 Say hello to the user.
 `;
-			await this.create("CloudAtlas/example.flow", exampleFlowString);
+			await this.create("CloudAtlas/example.flow.md", exampleFlowString);
 
 			await this.createFlow("Example");
 			new Notice(
@@ -560,12 +560,12 @@ Say hello to the user.
 			.filter(
 				(file) =>
 					file.path.startsWith("CloudAtlas/") &&
-					file.path.endsWith("flow.md")
+					file.path.endsWith(".flow.md")
 			);
 
 		// Create commands for each flow
 		cloudAtlasFlows.forEach((flowFile) => {
-			const flow = flowFile.path.split("/")[1].split(".flow")[0];
+			const flow = flowFile.path.split("/")[1].split(".flow.md")[0];
 			this.addNewCommand(this, flow);
 		});
 

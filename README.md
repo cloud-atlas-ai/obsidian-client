@@ -56,7 +56,7 @@ Once you add the flow, you can run it on any note in your vault. To run a flow, 
 
 ### Editing a Flow
 
-To edit an existing flow or create a new one, navigate to the `CloudAtlas` subdirectory in your vault. There you can create a flow by creating a new file, e.g. `demo.flow`:
+To edit an existing flow or create a new one, navigate to the `CloudAtlas` subdirectory in your vault. There you can create a flow by creating a new file, e.g. `demo.flow.md`:
 
 ```markdown
 ---
@@ -76,12 +76,23 @@ The front matter of the file defines the flow settings.
 - The `exclusionPattern` property defines a regex of files to not resolve. You might want to exclude files that contain sensitive information or templates.
 - The `mode` property will be used to define the mode of the flow. The types we are developing are `append`, `replace`, and `interactive`.
 
-You can further configure a flow:
+You can further configure a flow. For example, if you want to customize the demo flow, you can create a `demo.md` file in the `CloudAtlas` subdirectory:
 
-- By creating a `<vault>/CloudAtlas/<flow>.md` file.
 - This file will be included in the additional context sent to the API.
 - The content in it will also be resolved for backlinks and forward links as with the note.
-- The front matter of the file can be used to override the flow settings defined in the `<flow>.flow` file.
+- The front matter of the file can be used to override the flow settings defined in the `demo.md` file.
+
+e.g. `demo.md`:
+
+```markdown
+---
+system_instructions: You are a helpful assistant.
+resolveBacklinks: false
+resolveForwardLinks: false
+---
+
+My name is Muness. I am the user.
+```
 
 ## Manually installing the plugin
 

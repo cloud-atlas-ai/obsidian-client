@@ -23,10 +23,8 @@ export class CloudAtlasGlobalSettingsTab extends PluginSettingTab {
 
 	wikifySetting = (containerEl: HTMLElement, namedEntity: NamedEntity) => {
 		new Setting(containerEl)
-			.setName(
-				namedEntity === NamedEntity.Person ? "People" : "Locations"
-			)
-			.setDesc("Make entity names into wikilinks")
+			.setName(namedEntity)
+			.setDesc("Convert entity names into wikilinks.")
 			.addToggle((toggle) =>
 				toggle
 					.setValue(this.plugin.settings.wikify.includes(namedEntity))
@@ -53,7 +51,7 @@ export class CloudAtlasGlobalSettingsTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName("API Key")
-			.setDesc("Cloud Atlas API key")
+			.setDesc("Cloud Atlas API key.")
 			.addText((text) =>
 				text
 					.setPlaceholder("Enter API key")
@@ -66,7 +64,7 @@ export class CloudAtlasGlobalSettingsTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName("Preview mode")
-			.setDesc("Use unstable API with more features and less stability")
+			.setDesc("Use unstable API with more features and less stability.")
 			.addToggle((toggle) =>
 				toggle
 					.setValue(this.plugin.settings.previewMode)
@@ -79,7 +77,7 @@ export class CloudAtlasGlobalSettingsTab extends PluginSettingTab {
 		new Setting(containerEl)
 			.setName("Entity recognition")
 			.setDesc(
-				"Run named entity recognition on submitted notes, results in more relevant context entries, leading to more useful returns"
+				"Run named entity recognition on submitted notes, results in more relevant context entries, leading to more useful returns."
 			)
 			.addToggle((toggle) =>
 				toggle
@@ -93,7 +91,7 @@ export class CloudAtlasGlobalSettingsTab extends PluginSettingTab {
 		new Setting(containerEl)
 			.setName("Generate embeddings")
 			.setDesc(
-				"Generate embeddings for submitted notes, allows us to use retrieveal augmented generation"
+				"Generate embeddings for submitted notes, allows us to use retrieveal augmented generation."
 			)
 			.addToggle((toggle) =>
 				toggle
@@ -113,7 +111,7 @@ export class CloudAtlasGlobalSettingsTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName("Resolve links")
-			.setDesc("Adds resolved links as additional prompt context")
+			.setDesc("Adds resolved links as additional prompt context.")
 			.addToggle((toggle) =>
 				toggle
 					.setValue(this.plugin.settings.canvasResolveLinks)
@@ -125,7 +123,7 @@ export class CloudAtlasGlobalSettingsTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName("Resolve backlinks")
-			.setDesc("Adds resolved backlinks as additional prompt context")
+			.setDesc("Adds resolved backlinks as additional prompt context.")
 			.addToggle((toggle) =>
 				toggle
 					.setValue(this.plugin.settings.canvasResolveBacklinks)

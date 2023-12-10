@@ -29,8 +29,7 @@ Each flow is like having a personal assistant within Obsidian, helping you manag
 
 ## Understanding the Plugin's Functionality
 
-- **Instructions and Prompt**: `<flow name>.prompt` files from the `vault>/CloudAtlas` subdirectory. The value of the `system_instruction` property acts as the instructions or context for the API, and the content of the file provides a specific prompt or question.
-- **Additional Context**: The plugin will include all the notes listed in the `additional_context` property. It will also include forward and backlinks from the note you execute the flow in.
+- **Instructions and Prompt**: `<flow name>.flow.md` files from the `vault>/CloudAtlas` subdirectory. The value of the `system_instruction` property acts as the instructions or context for the API, and the content of the file provides a specific prompt or question.
 - **API Interaction**: The content of the active note, along with the system instructions, user prompt, and additional context, is sent to an external API. The API enriches and otherwise processes this and returns a response.
 - **Appending API Response**: The response from the API is then automatically appended to the end of the active note, providing insights, answers, or content based on the provided instructions and the serverside processing.
 
@@ -40,23 +39,13 @@ Each flow is like having a personal assistant within Obsidian, helping you manag
 
 This plugin enhances Obsidian by allowing you to define and execute custom flows. Each flow is a set of instructions and prompts that help you as you use Obsidian. The plugin achieves this by sending the current note's content (and additional context) to an external API and then appending the API's response to the note.
 
-### Adding a Flow
-
-1. **Create a Subdirectory**: In your Obsidian `<vault>`, navigate to the `CloudAtlas` directory. Each subdirectory within `CloudAtlas` represents a different flow. Create a new subdirectory for your new flow. The name of this subdirectory will be used as the name of the flow.
-
-2. **Add Required Files**: In your new subdirectory, create two markdown files:
-   - `system.md`: This file should contain any system-level instructions or information that you want to send to the API along with your note content.
-   - `user_prompt.md`: This file should contain the prompt or question that you want to address in your note. This prompt will guide the API's response.
-
-3. Reload Obsidian to see your new flow.
-
 ### Running a Flow
 
 Once you add the flow, you can run it on any note in your vault. To run a flow, open the note you want to process and select the flow from the prompts. The command will send the note's content, along with the system instructions and user prompt, to the API. The API will return a response, which will be appended to the end of the note.
 
-### Editing a Flow
+### Adding or editing a Flow
 
-To edit an existing flow or create a new one, navigate to the `CloudAtlas` subdirectory in your vault. There you can create a flow by creating a new file, e.g. `demo.flow.md`:
+To edit an existing flow or create a new one, navigate to the `CloudAtlas` subdirectory in your vault. There you can create a flow by creating a new file, e.g. `demo.flow.md`. Note that Obsidian automatically adds the `.md` extension to the file, so you'll see it as `demo.flow` in Obsidian and `demo.flow.md` in the a file explorer/Finder:
 
 ```markdown
 ---

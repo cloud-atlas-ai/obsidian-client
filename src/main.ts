@@ -641,8 +641,8 @@ class CloudAtlasGlobalSettingsTab extends PluginSettingTab {
 
 	wikifySetting = (containerEl: HTMLElement, namedEntity: NamedEntity) => {
 		new Setting(containerEl)
-			.setName("Person")
-			.setDesc("Wikify person names in results")
+			.setName(namedEntity === NamedEntity.Person ? "People" : "Locations" )
+			.setDesc("Make entity names into wikilinks")
 			.addToggle((toggle) =>
 				toggle
 					.setValue(this.plugin.settings.wikify.includes(namedEntity))

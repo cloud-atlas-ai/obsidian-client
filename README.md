@@ -76,6 +76,13 @@ The front matter of the file defines the flow settings.
 - The `exclusionPattern` property defines a regex of files to not resolve. You might want to exclude files that contain sensitive information or templates.
 - The `mode` property will be used to define the mode of the flow. The types we are developing are `append`, `replace`, and `interactive`.
 
+You can further configure a flow:
+
+- By creating a `<vault>/CloudAtlas/<flow>.md` file.
+- This file will be included in the additional context sent to the API.
+- The content in it will also be resolved for backlinks and forward links as with the note.
+- The front matter of the file can be used to override the flow settings defined in the `<flow>.flow` file.
+
 ## Manually installing the plugin
 
 1. If you don't already use plugins

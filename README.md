@@ -56,24 +56,25 @@ Once you add the flow, you can run it on any note in your vault. To run a flow, 
 
 ### Editing a Flow
 
-To edit an existing flow, navigate to its subdirectory in `CloudAtlas`. Modify the contents of `system.md` and `user_prompt.md` as needed. Changes to these files will directly affect how the plugin processes your notes and what information is sent to the API.
+To edit an existing flow or create a new one, navigate to the `CloudAtlas` subdirectory in your vault. There you can create a flow by creating a new file, e.g. `demo.flow`:
 
-### Example Flow: "Daily Review"
+```markdown
+---
+system_instructions: You are a helpful assistant.
+resolveBacklinks: true
+resolveForwardLinks: true
+exclusionPattern: ["^Private/", ".*-confidential.*"]
+---
 
-1. **Create Subdirectory**: In `CloudAtlas`, create a subdirectory named `Daily Review`.
-2. **Add `system.md`**: Inside the `Daily Review` subdirectory, create a `system.md` file with content like:
+Say hello to the user.
+```
 
-    ```system.md
-    System Instructions: Provide a summary of the day's key points and action items.
-    ```
+The front matter of the file defines the flow settings.
 
-3. **Add `user_prompt.md`**: Create a `user_prompt.md` file with content such as:
-
-    ```user_prompt.md
-    What are the main takeaways from today's notes?
-    ```
-
-4. **Usage**: When you run the "Daily Review" flow on a note, the plugin will send the content of the note, along with the system instructions and user prompt, to the API. The API will return a summary of key points and action items based on the note's content, which will be appended to your note.
+- The `system_instructions` property defines the system instructions, telling Cloud Atlas what kind of personal assistant you want to be.
+- The `resolveBacklinks` and `resolveForwardLinks` properties define whether backlinks and forward links will be resolved. Resolving links means that the content of the linked notes will be available to Cloud Atlas when it processes the note.
+- The `exclusionPattern` property defines a regex of files to not resolve. You might want to exclude files that contain sensitive information or templates.
+- The `mode` property will be used to define the mode of the flow. The types we are developing are `append`, `replace`, and `interactive`.
 
 ## Manually installing the plugin
 

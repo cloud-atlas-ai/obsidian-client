@@ -68,7 +68,7 @@ import { load as parseYaml } from "js-yaml";
 export default class CloudAtlasPlugin extends Plugin {
 	settings: CloudAtlasPluginSettings;
 
-	parseFlowFile = (content: string) : FlowConfig => {
+	parseFlowFile = (content: string): FlowConfig => {
 		const frontMatterRegex = /---\s*([\s\S]*?)\s*---/;
 		const match = frontMatterRegex.exec(content);
 
@@ -79,23 +79,32 @@ export default class CloudAtlasPlugin extends Plugin {
 			properties = parseYaml(frontMatter) as { [key: string]: any };
 		}
 
-				if (match) {
-					const frontMatter = match[1];
-					properties = parseYaml(frontMatter) as { [key: string]: string };
-				}
+		if (match) {
+			const frontMatter = match[1];
+			properties = parseYaml(frontMatter) as { [key: string]: string };
+		}
 
-				const userPrompt = content.replace(frontMatterRegex, "").trim();
-				const system_instructions = properties["system_instructions"] as string ? properties["system_instructions"] : null;
-				const mode = properties["mode"] as string ? properties["mode"] : null;
-				const resolveBacklinks = properties["resolveBacklinks"] ? properties["resolveBacklinks"] === 'true' : null;
-		    const resolveForwardLinks = properties["resolveForwardLinks"] ? properties["resolveForwardLinks"] === 'true' : null;
-				const exclusionPatterns = properties["exclusionPatterns"] ? properties["exclusionPatterns"] : [];
+		const userPrompt = content.replace(frontMatterRegex, "").trim();
+		const system_instructions = properties["system_instructions"] as string ? properties["system_instructions"] : null;
+		const mode = properties["mode"] as string ? properties["mode"] : null;
+		const resolveBacklinks = properties["resolveBacklinks"]
+			? (typeof properties["resolveBacklinks"] === 'boolean'
+				? properties["resolveBacklinks"]
+				: properties["resolveBacklinks"] === 'true')
+			: null;
 
-				return { userPrompt: userPrompt, system_instructions: system_instructions, mode: mode, resolveBacklinks: resolveBacklinks, resolveForwardLinks: resolveForwardLinks, exclusionPatterns: exclusionPatterns };
+		const resolveForwardLinks = properties["resolveForwardLinks"]
+			? (typeof properties["resolveForwardLinks"] === 'boolean'
+				? properties["resolveForwardLinks"]
+				: properties["resolveForwardLinks"] === 'true')
+			: null;
+		const exclusionPatterns = properties["exclusionPatterns"] ? properties["exclusionPatterns"] : [];
+
+		return { userPrompt: userPrompt, system_instructions: system_instructions, mode: mode, resolveBacklinks: resolveBacklinks, resolveForwardLinks: resolveForwardLinks, exclusionPatterns: exclusionPatterns };
 	};
 
 	async parseUserFlowFile(flow: string) {
-		const userFlowFilePath = `CloudAtlas/${flow}.user_flow`;
+		const userFlowFilePath = `CloudAtlas/${flow}.md`;
 		const userFlowFileExists = await this.app.vault.adapter.exists(userFlowFilePath);
 
 		if (userFlowFileExists) {
@@ -112,6 +121,8 @@ export default class CloudAtlasPlugin extends Plugin {
 
 	runFlow = async (editor: Editor, flow: string) => {
 		const noteFile = this.app.workspace.getActiveFile();
+		const userFlowFile = `CloudAtlas/${flow}.md`;
+
 		let input = editor.getSelection();
 		let fromSelection = true;
 
@@ -129,8 +140,8 @@ export default class CloudAtlasPlugin extends Plugin {
 		const defaultFlowConfig = this.parseFlowFile(flowFileContent);
 		const userFlowConfig = await this.parseUserFlowFile(flow);
 
-		let flowConfig : FlowConfig = {
-			userPrompt: defaultFlowConfig.userPrompt + '\n' + userFlowConfig?.userPrompt,
+		let flowConfig: FlowConfig = {
+			userPrompt: defaultFlowConfig.userPrompt,
 			system_instructions: userFlowConfig?.system_instructions || defaultFlowConfig.system_instructions,
 			mode: userFlowConfig?.mode || defaultFlowConfig.mode || "append",
 			resolveBacklinks: userFlowConfig?.resolveBacklinks || defaultFlowConfig.resolveBacklinks || false,
@@ -138,7 +149,7 @@ export default class CloudAtlasPlugin extends Plugin {
 			exclusionPatterns: (defaultFlowConfig.exclusionPatterns).concat(userFlowConfig?.exclusionPatterns || []),
 		};
 
-		flowConfig["userPrompt"] = defaultFlowConfig.userPrompt + "\n" + (userFlowConfig?.userPrompt || '');
+		console.debug("flowConfig: ", flowConfig);
 
 		if (fromSelection) {
 			editor.replaceSelection(
@@ -165,12 +176,16 @@ export default class CloudAtlasPlugin extends Plugin {
 		let additionalContext: AdditionalContext = {};
 
 		if (flowConfig.resolveForwardLinks) {
-			const resolvedLinks = await this.resolveLinksForPath(noteFile.path, exclusionPatterns);
+			let resolvedLinks = await this.resolveLinksForPath(noteFile.path, exclusionPatterns);
+			Object.assign(additionalContext, resolvedLinks);
+			resolvedLinks = await this.resolveLinksForPath(userFlowFile, exclusionPatterns);
 			Object.assign(additionalContext, resolvedLinks);
 		}
 
 		if (flowConfig.resolveBacklinks) {
-			const resolvedBacklinks = await this.resolveBacklinksForPath(noteFile.path, exclusionPatterns);
+			let resolvedBacklinks = await this.resolveBacklinksForPath(noteFile.path, exclusionPatterns);
+			Object.assign(additionalContext, resolvedBacklinks);
+			resolvedBacklinks = await this.resolveBacklinksForPath(userFlowFile, exclusionPatterns);
 			Object.assign(additionalContext, resolvedBacklinks);
 		}
 
@@ -242,6 +257,7 @@ export default class CloudAtlasPlugin extends Plugin {
 	): Promise<AdditionalContext> => {
 		const additionalContext: AdditionalContext = {};
 		const file = this.app.vault.getAbstractFileByPath(filePath) as TFile;
+
 		const activeBacklinks =
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			await (this.app.metadataCache as any).getBacklinksForFile(file);
@@ -464,7 +480,6 @@ export default class CloudAtlasPlugin extends Plugin {
 
 			// Register .flow files as markdown files
 			this.registerExtensions(["flow"], "markdown");
-			this.registerExtensions(["user_flow"], "markdown");
 
 			await this.createFolder("CloudAtlas");
 

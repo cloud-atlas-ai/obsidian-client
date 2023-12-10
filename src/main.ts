@@ -72,7 +72,12 @@ export default class CloudAtlasPlugin extends Plugin {
 		const frontMatterRegex = /---\s*([\s\S]*?)\s*---/;
 		const match = frontMatterRegex.exec(content);
 
-		let properties: { [key: string]: string } = {}; // Add type assertion here
+		let properties: { [key: string]: any } = {}; // Add type assertion here
+
+		if (match) {
+			const frontMatter = match[1];
+			properties = parseYaml(frontMatter) as { [key: string]: any };
+		}
 
 		if (match) {
 			const frontMatter = match[1];
@@ -80,16 +85,44 @@ export default class CloudAtlasPlugin extends Plugin {
 		}
 
 		const userPrompt = content.replace(frontMatterRegex, "").trim();
-		const system_instructions = properties["system_instructions"] as string ? properties["system_instructions"] : "You are a helpful assistant.";
-		const mode = properties["mode"] as string ? properties["mode"] : "append";
-		const resolveBacklinks = properties["resolveBacklinks"] ? properties["resolveBacklinks"] === 'true' : false;
-    const resolveForwardLinks = properties["resolveForwardLinks"] ? properties["resolveForwardLinks"] === 'true' : false;
+		const system_instructions = properties["system_instructions"] as string ? properties["system_instructions"] : null;
+		const mode = properties["mode"] as string ? properties["mode"] : null;
+		const resolveBacklinks = properties["resolveBacklinks"]
+			? (typeof properties["resolveBacklinks"] === 'boolean'
+				? properties["resolveBacklinks"]
+				: properties["resolveBacklinks"] === 'true')
+			: null;
 
-		return { userPrompt: userPrompt, system_instructions: system_instructions, mode: mode, resolveBacklinks: resolveBacklinks, resolveForwardLinks: resolveForwardLinks };
+		const resolveForwardLinks = properties["resolveForwardLinks"]
+			? (typeof properties["resolveForwardLinks"] === 'boolean'
+				? properties["resolveForwardLinks"]
+				: properties["resolveForwardLinks"] === 'true')
+			: null;
+		const exclusionPatterns = properties["exclusionPatterns"] ? properties["exclusionPatterns"] : [];
+
+		return { userPrompt: userPrompt, system_instructions: system_instructions, mode: mode, resolveBacklinks: resolveBacklinks, resolveForwardLinks: resolveForwardLinks, exclusionPatterns: exclusionPatterns };
+	};
+
+	async parseUserFlowFile(flow: string) {
+		const userFlowFilePath = `CloudAtlas/${flow}.md`;
+		const userFlowFileExists = await this.app.vault.adapter.exists(userFlowFilePath);
+
+		if (userFlowFileExists) {
+			const userFlowFileContent = await this.readNote(userFlowFilePath);
+			const userFlowConfig = this.parseFlowFile(userFlowFileContent);
+			return userFlowConfig;
+		}
+		return null;
+	}
+
+	parseExclusionPatterns = (patterns: string[]): RegExp[] => {
+		return patterns.map(pattern => new RegExp(pattern));
 	};
 
 	runFlow = async (editor: Editor, flow: string) => {
 		const noteFile = this.app.workspace.getActiveFile();
+		const userFlowFile = `CloudAtlas/${flow}.md`;
+
 		let input = editor.getSelection();
 		let fromSelection = true;
 
@@ -104,7 +137,19 @@ export default class CloudAtlasPlugin extends Plugin {
 
 		const flowFilePath = `CloudAtlas/${flow}.flow`;
 		const flowFileContent = await this.readNote(flowFilePath);
-		const flowConfig = this.parseFlowFile(flowFileContent);
+		const defaultFlowConfig = this.parseFlowFile(flowFileContent);
+		const userFlowConfig = await this.parseUserFlowFile(flow);
+
+		let flowConfig: FlowConfig = {
+			userPrompt: defaultFlowConfig.userPrompt,
+			system_instructions: userFlowConfig?.system_instructions || defaultFlowConfig.system_instructions,
+			mode: userFlowConfig?.mode || defaultFlowConfig.mode || "append",
+			resolveBacklinks: userFlowConfig?.resolveBacklinks || defaultFlowConfig.resolveBacklinks || false,
+			resolveForwardLinks: userFlowConfig?.resolveForwardLinks || defaultFlowConfig.resolveForwardLinks || false,
+			exclusionPatterns: (defaultFlowConfig.exclusionPatterns).concat(userFlowConfig?.exclusionPatterns || []),
+		};
+
+		console.debug("flowConfig: ", flowConfig);
 
 		if (fromSelection) {
 			editor.replaceSelection(
@@ -126,31 +171,29 @@ export default class CloudAtlasPlugin extends Plugin {
 			additional_context: {},
 		};
 
-		let system = flowConfig.system_instructions;
-		system += "\n\n" + ADDITIONAL_SYSTEM;
-
-		const resolvedLinks = await this.resolveLinksForPath(noteFile.path);
-
-		const resolvedBacklinks = await this.resolveBacklinksForPath(
-			noteFile.path
-		);
+		const exclusionPatterns: RegExp[] = this.parseExclusionPatterns(flowConfig?.exclusionPatterns) || [];
 
 		let additionalContext: AdditionalContext = {};
 
-    if (flowConfig.resolveForwardLinks) {
-        const resolvedLinks = await this.resolveLinksForPath(noteFile.path);
-        Object.assign(additionalContext, resolvedLinks);
-    }
-    if (flowConfig.resolveBacklinks) {
-        const resolvedBacklinks = await this.resolveBacklinksForPath(noteFile.path);
-        Object.assign(additionalContext, resolvedBacklinks);
-    }
+		if (flowConfig.resolveForwardLinks) {
+			let resolvedLinks = await this.resolveLinksForPath(noteFile.path, exclusionPatterns);
+			Object.assign(additionalContext, resolvedLinks);
+			resolvedLinks = await this.resolveLinksForPath(userFlowFile, exclusionPatterns);
+			Object.assign(additionalContext, resolvedLinks);
+		}
 
-    user.additional_context = additionalContext;
+		if (flowConfig.resolveBacklinks) {
+			let resolvedBacklinks = await this.resolveBacklinksForPath(noteFile.path, exclusionPatterns);
+			Object.assign(additionalContext, resolvedBacklinks);
+			resolvedBacklinks = await this.resolveBacklinksForPath(userFlowFile, exclusionPatterns);
+			Object.assign(additionalContext, resolvedBacklinks);
+		}
+
+		user.additional_context = additionalContext;
 
 		const data = {
 			user,
-			system,
+			system: flowConfig.system_instructions || "You are a helpful assistant.",
 			options: {
 				entity_recognition: false,
 				generate_embeddings: false,
@@ -197,22 +240,33 @@ export default class CloudAtlasPlugin extends Plugin {
 		return content;
 	};
 
+	readAndFilterContent = async (path: string, excludePatterns: RegExp[]): Promise<string> => {
+		if (excludePatterns.some(pattern => pattern.test(path))) {
+			return ""; // Skip reading if path matches any exclusion pattern
+		}
+		try {
+			return await this.readNote(path);
+		} catch (e) {
+			console.error(e);
+			return "";
+		}
+	};
+
 	resolveBacklinksForPath = async (
-		filePath: string
+		filePath: string, excludePatterns: RegExp[]
 	): Promise<AdditionalContext> => {
 		const additionalContext: AdditionalContext = {};
 		const file = this.app.vault.getAbstractFileByPath(filePath) as TFile;
+
 		const activeBacklinks =
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			await (this.app.metadataCache as any).getBacklinksForFile(file);
 		// Process backlinks and resolved links
 		const backlinkPromises = Array.from(activeBacklinks.keys()).map(
 			async (key: string) => {
-				try {
-					const linkedNoteContent = await this.readNote(key);
+				const linkedNoteContent = await this.readAndFilterContent(key, excludePatterns);
+				if (linkedNoteContent) {
 					additionalContext[key] = linkedNoteContent;
-				} catch (e) {
-					console.log(e);
 				}
 			}
 		);
@@ -221,7 +275,7 @@ export default class CloudAtlasPlugin extends Plugin {
 	};
 
 	resolveLinksForPath = async (
-		filePath: string
+		filePath: string, excludePatterns: RegExp[]
 	): Promise<AdditionalContext> => {
 		const additionalContext: AdditionalContext = {};
 		const activeResolvedLinks = await this.app.metadataCache.resolvedLinks[
@@ -229,11 +283,9 @@ export default class CloudAtlasPlugin extends Plugin {
 		];
 		const resolvedLinkPromises = Object.keys(activeResolvedLinks).map(
 			async (property) => {
-				try {
-					const linkedNoteContent = await this.readNote(property);
+				const linkedNoteContent = await this.readAndFilterContent(property, excludePatterns);
+				if (linkedNoteContent) {
 					additionalContext[property] = linkedNoteContent;
-				} catch (e) {
-					console.log(e);
 				}
 			}
 		);
@@ -392,14 +444,14 @@ export default class CloudAtlasPlugin extends Plugin {
 		if ((inputNode as FileNode).file) {
 			if (this.settings.canvasResolveLinks) {
 				const resolvedLinks = await this.resolveLinksForPath(
-					(inputNode as FileNode).file
+					(inputNode as FileNode).file, [] // assuming no exclusions in the canvas flow runner
 				);
 				Object.assign(additional_context, resolvedLinks);
 			}
 
 			if (this.settings.canvasResolveBacklinks) {
 				const resolvedBacklinks = await this.resolveBacklinksForPath(
-					(inputNode as FileNode).file
+					(inputNode as FileNode).file, [] // assuming no exclusions in the canvas flow runner
 				);
 
 				Object.assign(additional_context, resolvedBacklinks);
@@ -432,10 +484,11 @@ export default class CloudAtlasPlugin extends Plugin {
 			await this.createFolder("CloudAtlas");
 
 			const exampleFlowString =
-`---
+				`---
 system_instructions: You are a helpful assistant.
 resolveBacklinks: true
 resolveForwardLinks: true
+exclusionPattern: ["^Private/", ".*-confidential.*"]
 ---
 
 Say hello to the user.

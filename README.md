@@ -10,12 +10,6 @@ By tapping into knowledge sources and computational models, Cloud Atlas offers a
 
 The Obsidian plugin aspect of Cloud Atlas is open source, while the server component operates on a freemium model, ensuring accessibility and advanced features for all users.
 
-## Planning Not Plans framework support
-
-Cloud Atlas use cases are focused on implementing the [Planning not Plans framework](https://muness.com/posts/planning-not-plans/) for productivity. The framework is based on the idea that the process of planning is more important than the plan itself.
-
-Cloud Atlas helps you implement this framework by providing a way to automatically process your notes and get contextual responses. The plugin ships with curated flows that are designed to help you implement the framework.
-
 ## What is a Flow?
 
 A flow in Cloud Atlas is a powerful tool that simplifies and elevates your note-taking experience. It leverages content already in your vault you to:
@@ -32,57 +26,66 @@ Each flow is like having a personal assistant within Obsidian, helping you manag
 - **Instructions and Prompt**: `<flow name>.flow.md` files from the `vault>/CloudAtlas` subdirectory. The value of the `system_instruction` property acts as the instructions or context for the API, and the content of the file provides a specific prompt or question.
 - **API Interaction**: The content of the active note, along with the system instructions, user prompt, and additional context, is sent to an external API. The API enriches and otherwise processes this and returns a response.
 - **Appending API Response**: The response from the API is then automatically appended to the end of the active note, providing insights, answers, or content based on the provided instructions and the serverside processing.
-
-## Usage
-
-### Overview
-
-This plugin enhances Obsidian by allowing you to define and execute custom flows. Each flow is a set of instructions and prompts that help you as you use Obsidian. The plugin achieves this by sending the current note's content (and additional context) to an external API and then appending the API's response to the note.
-
-### Running a Flow
-
-Once you add the flow, you can run it on any note in your vault. To run a flow, open the note you want to process and select the flow from the prompts. The command will send the note's content, along with the system instructions and user prompt, to the API. The API will return a response, which will be appended to the end of the note.
-
-### Adding or editing a Flow
-
-To edit an existing flow or create a new one, navigate to the `CloudAtlas` subdirectory in your vault. There you can create a flow by creating a new file, e.g. `demo.flow.md`. Note that Obsidian automatically adds the `.md` extension to the file, so you'll see it as `demo.flow` in Obsidian and `demo.flow.md` in the a file explorer/Finder:
-
-```markdown
----
-system_instructions: You are a helpful assistant.
-resolveBacklinks: true
-resolveForwardLinks: true
-exclusionPattern: ["^Private/", ".*-confidential.*"]
 ---
 
-Say hello to the user.
-```
+## Cloud Atlas Plugin Usage Guide
 
-The front matter of the file defines the flow settings.
+This  will walk you through creating, running, and customizing your personal flows. Let's get started.
 
-- The `system_instructions` property defines the system instructions, telling Cloud Atlas what kind of personal assistant you want to be.
-- The `resolveBacklinks` and `resolveForwardLinks` properties define whether backlinks and forward links will be resolved. Resolving links means that the content of the linked notes will be available to Cloud Atlas when it processes the note.
-- The `exclusionPattern` property defines a regex of files to not resolve. You might want to exclude files that contain sensitive information or templates.
-- The `mode` property will be used to define the mode of the flow. The types we are developing are `append`, `replace`, and `interactive`.
+### Step 1: Creating a New Flow
 
-#### Customizing a Flow with your own content
+1. **Navigate to the `CloudAtlas` Directory**: Open your Obsidian vault and find the `CloudAtlas` subdirectory. This is where your custom flows will live.
 
-You can further configure a flow. For example, if you want to customize the demo flow, you can create a `demo.md` file in the `CloudAtlas` subdirectory:
+2. **Create a New Flow File**: In the `CloudAtlas` directory, create a new file for your flow. Name it something like `demo.flow`.
 
-- This file will be included in the additional context sent to the API.
-- The content in it will also be resolved for backlinks and forward links as with the note.
-- The front matter of the file can be used to override the flow settings defined in the `demo.flowdata.md` file.
+3. **Add Flow Content and Settings**: Edit your new flow file. Here's an example of what it might look like:
 
-e.g. `demo.flowdata.md`:
+    ```markdown
+    ---
+    system_instructions: You are a helpful assistant.
+    resolveBacklinks: true
+    resolveForwardLinks: true
+    exclusionPattern: ["^Private/", ".*-confidential.*"]
+    ---
 
-```markdown
----
-resolveBacklinks: false
-resolveForwardLinks: false
----
+    Say hello to the user.
+    ```
 
-My name is Muness. I am the user.
-```
+    In the front matter (the section between `---`), you can set various options:
+    - `system_instructions`: Instructions for Cloud Atlas on how to assist.
+    - `resolveBacklinks` and `resolveForwardLinks`: Whether to include content from linked notes.
+    - `exclusionPattern`: Patterns for notes to exclude, useful for omitting sensitive data.
+
+### Step 2: Running Your Flow
+
+1. **Open Any Note**: With your flow created, open any note in your vault where you want to run the flow.
+
+2. **Execute the Flow**: Use Obsidian's command palette (`Ctrl/Cmd + P`) and type `Run demo Flow`. Selecting this command will execute your flow on the current note.
+
+3. **View the Results**: Cloud Atlas processes the note and appends or replaces the content based on your flow settings. The response from Cloud Atlas will appear in your note.
+
+### Step 3: Customizing Your Flow
+
+1. **Create a Customization File**: In the `CloudAtlas` directory, create a `demo.flowdata` file to customize the `demo` flow.
+
+2. **Add Custom Content and Settings**: Here's an example customization:
+
+    ```markdown
+    ---
+    resolveBacklinks: false
+    resolveForwardLinks: false
+    ---
+
+    My name is Muness. I am the user.
+    ```
+
+    This file allows you to:
+    - Provide additional content that Cloud Atlas will consider when processing your flow.
+    - Override settings defined in `demo.flow`.
+
+3. **Re-run Your Flow**: After customizing, go back to any note and run the `demo` flow again. You'll see how the customizations impact the flow's output.
+
+That's it! You've now learned how to create, run, and customize your own flows in Obsidian using the Cloud Atlas plugin. Go wild!
 
 ## Manually installing the plugin
 

@@ -21,12 +21,7 @@ import {
 	textNode,
 } from "./canvas";
 
-import {
-	ViewUpdate,
-	PluginValue,
-	EditorView,
-	ViewPlugin
-} from "@codemirror/view";
+import { ViewUpdate, EditorView, ViewPlugin } from "@codemirror/view";
 
 import { AdditionalContext, Payload, User, FlowConfig } from "./interfaces";
 import { randomUUID } from "crypto";
@@ -180,9 +175,9 @@ export default class CloudAtlasPlugin extends Plugin {
 		if (fromSelection) {
 			editor.replaceSelection(
 				input +
-				"\n\n---\n\n" +
-				`\u{1F4C4}\u{2194}\u{1F916}` +
-				"\n\n---\n\n"
+					"\n\n---\n\n" +
+					`\u{1F4C4}\u{2194}\u{1F916}` +
+					"\n\n---\n\n"
 			);
 		} else {
 			editor.replaceSelection(
@@ -494,46 +489,47 @@ export default class CloudAtlasPlugin extends Plugin {
 	private editorExtension: Extension[] = [];
 	updateEditorExtension() {
 		this.editorExtension.length = 0;
-		let myNewExtension = this.createEditorExtension();
-		this.editorExtension.push(myNewExtension);
+		const cloudAtlasExtension = this.createEditorExtension();
+		this.editorExtension.push(cloudAtlasExtension);
 		this.app.workspace.updateOptions();
 	}
 
-
 	createEditorExtension(): Extension {
 		const app = this.app; // Reference to the app instance
-		return ViewPlugin.fromClass(class {
-			constructor(view: EditorView) {
-				this.updateHeader(view, app);
-			}
+		return ViewPlugin.fromClass(
+			class {
+				constructor(view: EditorView) {
+					this.updateHeader(view, app);
+				}
 
-			update(update: ViewUpdate) {
-				this.updateHeader(update.view, app);
-			}
+				update(update: ViewUpdate) {
+					this.updateHeader(update.view, app);
+				}
 
-			updateHeader(view: EditorView, app: App) {
-				const markdownView = app.workspace.getActiveViewOfType(MarkdownView);
-				if (markdownView && markdownView.file) {
-					const filePath = markdownView.file.path;
+				updateHeader(view: EditorView, app: App) {
+					const markdownView =
+						app.workspace.getActiveViewOfType(MarkdownView);
+					if (markdownView && markdownView.file) {
+						const filePath = markdownView.file.path;
 
-					if (filePath.endsWith('.flow.md')) {
-						view.dom.classList.add("cloud-atlas-flow-file");
-					} else if (filePath.endsWith('.flowdata.md')) {
-						view.dom.classList.add("cloud-atlas-flowdata-file");
-					} else {
-						view.dom.classList.remove("cloud-atlas-flow-file", "cloud-atlas-flowdata-file");
+						if (filePath.endsWith(".flow.md")) {
+							view.dom.classList.add("cloud-atlas-flow-file");
+						} else if (filePath.endsWith(".flowdata.md")) {
+							view.dom.classList.add("cloud-atlas-flowdata-file");
+						} else {
+							view.dom.classList.remove(
+								"cloud-atlas-flow-file",
+								"cloud-atlas-flowdata-file"
+							);
+						}
 					}
 				}
 			}
-		});
+		);
 	}
 
 	async onload() {
-
-
 		await this.loadSettings();
-
-
 
 		try {
 			this.registerEditorExtension(this.editorExtension);
@@ -589,7 +585,7 @@ Say hello to the user.
 				if (noteFile) {
 					if (noteFile.path.endsWith(".canvas")) {
 						if (!checking) {
-							this.canvasOps(noteFile).then(() => { });
+							this.canvasOps(noteFile).then(() => {});
 						}
 						return true;
 					}
@@ -601,12 +597,12 @@ Say hello to the user.
 			id: `run-flow-${flow}`,
 			name: `Run ${flow} Flow`,
 			editorCallback: async (editor: Editor, view: MarkdownView) => {
-				this.runFlow(editor, flow).then(() => { });
+				this.runFlow(editor, flow).then(() => {});
 			},
 		});
 	}
 
-	onunload() { }
+	onunload() {}
 
 	async loadSettings() {
 		this.settings = Object.assign(

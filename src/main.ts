@@ -25,7 +25,7 @@ import { ViewUpdate, EditorView, ViewPlugin } from "@codemirror/view";
 
 import { AdditionalContext, Payload, User, FlowConfig } from "./interfaces";
 import { randomUUID } from "crypto";
-import { combinePayloads } from "./utils";
+import { combinePayloads, joinStrings } from "./utils";
 import {
 	CloudAtlasGlobalSettingsTab,
 	CloudAtlasPluginSettings,
@@ -56,8 +56,8 @@ export default class CloudAtlasPlugin extends Plugin {
 
 	pathToPayload = async (
 		filePath: string,
-		input?: string,
-		previousConfig?: FlowConfig | null
+		previousConfig?: FlowConfig | null,
+		inputConfig?: { selectionInput?: string; is_prompt: boolean }
 	): Promise<{ payload: Payload | null; config: FlowConfig | null }> => {
 		try {
 			const flowConfig = await this.flowConfigFromPath(filePath);
@@ -81,11 +81,23 @@ export default class CloudAtlasPlugin extends Plugin {
 				.substring(flowConfig.frontMatterOffset)
 				.trim();
 
-			// Support input from selection
-			input = input ? input : flowContent;
+			// This should happen only on the last step of the stack
+			let input = undefined;
+			if (inputConfig) {
+				input = inputConfig?.selectionInput
+					? inputConfig?.selectionInput
+					: flowContent;
+			}
+
+			let user_prompt;
+			if (inputConfig?.is_prompt) {
+				user_prompt = joinStrings(flowConfig.userPrompt, flowContent);
+			} else {
+				user_prompt = flowConfig.userPrompt;
+			}
 
 			const user: User = {
-				user_prompt: flowConfig.userPrompt,
+				user_prompt,
 				input,
 				additional_context: {},
 			};
@@ -181,16 +193,21 @@ export default class CloudAtlasPlugin extends Plugin {
 		}
 
 		const { payload: templateFlowPayload, config: templateFlowConfig } =
-			await this.pathToPayload(templateFlowFilePath);
+			await this.pathToPayload(templateFlowFilePath, null, {
+				is_prompt: true,
+			});
 
 		const { payload: dataFlowPayload, config: dataFlowConfig } = dataIsInput
 			? { payload: null, config: templateFlowConfig }
-			: await this.pathToPayload(dataFlowFilePath);
+			: await this.pathToPayload(dataFlowFilePath, templateFlowConfig, {
+					is_prompt: true,
+					// eslint-disable-next-line no-mixed-spaces-and-tabs
+			  });
 
 		const { payload: inputPayload } = await this.pathToPayload(
 			inputFlowFile.path,
-			input,
-			dataFlowConfig || templateFlowConfig
+			dataFlowConfig || templateFlowConfig,
+			{ selectionInput: input, is_prompt: false }
 		);
 
 		let payload = combinePayloads(templateFlowPayload, dataFlowPayload);

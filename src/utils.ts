@@ -36,7 +36,7 @@ export function combinePayloads(
 	};
 }
 
-function joinStrings(
+export function joinStrings(
 	first: string | undefined,
 	second: string | undefined
 ): string {

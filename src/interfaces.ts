@@ -38,3 +38,8 @@ export enum NamedEntity {
 	// List of supported entities -> https://learn.microsoft.com/en-us/azure/ai-services/language-service/named-entity-recognition/concepts/ga-preview-mapping
 	// Add an entry here, and in the settings builder to add new category support
 }
+
+export interface PayloadConfig {
+	payload: Payload | null;
+	config: FlowConfig | null;
+}

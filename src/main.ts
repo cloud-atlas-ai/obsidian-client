@@ -23,7 +23,13 @@ import {
 
 import { ViewUpdate, EditorView, ViewPlugin } from "@codemirror/view";
 
-import { AdditionalContext, Payload, User, FlowConfig } from "./interfaces";
+import {
+	AdditionalContext,
+	Payload,
+	User,
+	FlowConfig,
+	PayloadConfig,
+} from "./interfaces";
 import { randomUUID } from "crypto";
 import { combinePayloads, joinStrings } from "./utils";
 import {
@@ -54,11 +60,33 @@ const animateNotice = (notice: Notice) => {
 export default class CloudAtlasPlugin extends Plugin {
 	settings: CloudAtlasPluginSettings;
 
+	combineFlows = async (paths: string[]): Promise<Payload | null> => {
+		const uniquePaths = [...new Set(paths)];
+		const previous: PayloadConfig = {
+			payload: {
+				user: { input: undefined },
+				system: "",
+			},
+			config: null,
+		};
+		for (const path of uniquePaths) {
+			const { payload, config } = await this.pathToPayload(
+				path,
+				previous.config
+			);
+			if (payload) {
+				previous.payload = combinePayloads(previous.payload, payload);
+				previous.config = config;
+			}
+		}
+		return previous.payload;
+	};
+
 	pathToPayload = async (
 		filePath: string,
 		previousConfig?: FlowConfig | null,
 		inputConfig?: { selectionInput?: string; is_prompt: boolean }
-	): Promise<{ payload: Payload | null; config: FlowConfig | null }> => {
+	): Promise<PayloadConfig> => {
 		try {
 			const flowConfig = await this.flowConfigFromPath(filePath);
 			const flowFile = this.app.vault.getAbstractFileByPath(
@@ -170,7 +198,6 @@ export default class CloudAtlasPlugin extends Plugin {
 		const dataFlowFilePath = normalizePath(
 			`CloudAtlas/${flow}.flowdata.md`
 		);
-		const dataIsInput = inputFlowFile?.path === dataFlowFilePath;
 
 		const input = editor.getSelection();
 		const fromSelection = Boolean(input);
@@ -192,26 +219,18 @@ export default class CloudAtlasPlugin extends Plugin {
 			);
 		}
 
-		const { payload: templateFlowPayload, config: templateFlowConfig } =
-			await this.pathToPayload(templateFlowFilePath, null, {
-				is_prompt: true,
-			});
-
-		const { payload: dataFlowPayload, config: dataFlowConfig } = dataIsInput
-			? { payload: null, config: templateFlowConfig }
-			: await this.pathToPayload(dataFlowFilePath, templateFlowConfig, {
-					is_prompt: true,
-					// eslint-disable-next-line no-mixed-spaces-and-tabs
-			  });
-
-		const { payload: inputPayload } = await this.pathToPayload(
+		const flows = [
+			templateFlowFilePath,
+			dataFlowFilePath,
 			inputFlowFile.path,
-			dataFlowConfig || templateFlowConfig,
-			{ selectionInput: input, is_prompt: false }
-		);
+		];
 
-		let payload = combinePayloads(templateFlowPayload, dataFlowPayload);
-		payload = combinePayloads(payload, inputPayload);
+		const payload = await this.combineFlows(flows);
+
+		if (!payload) {
+			throw new Error("Could not construct payload!");
+			return;
+		}
 
 		payload.options = payload.options || {};
 		payload.options.entity_recognition = this.settings.entityRecognition;

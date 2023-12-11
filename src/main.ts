@@ -531,13 +531,13 @@ export default class CloudAtlasPlugin extends Plugin {
 	async onload() {
 
 
-			await this.loadSettings();
+		await this.loadSettings();
 
 
 
-			try {
-				this.registerEditorExtension(this.editorExtension);
-				this.updateEditorExtension();
+		try {
+			this.registerEditorExtension(this.editorExtension);
+			this.updateEditorExtension();
 			// Register .flow files as markdown files
 			// this.registerExtensions(["flow"], "markdown");
 

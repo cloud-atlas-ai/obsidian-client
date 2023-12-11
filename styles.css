@@ -6,3 +6,40 @@ available in the app when your plugin is enabled.
 If your plugin does not need CSS, delete this file.
 
 */
+
+/* CSS file in your plugin's directory */
+.cloud-atlas-flow-file {
+  /* Styling for .flow.md files */
+  width: auto;
+}
+
+.cloud-atlas-flow-file::before {
+  content: "CloudAtlas Flow";
+  display: block;
+  font-size: var(--font-larger);
+  color: var(--foreground-secondary);
+  background-color: var(--background-secondary);
+  padding: var(--size-4-3);
+  border-top: 2px solid var(--text-accent);
+  border-bottom: 2px solid var(--text-accent);
+  margin-bottom: var(--size-4-3);
+}
+
+.cloud-atlas-flowdata-file {
+  /* Styling for .flowdata.md files */
+  width: auto;
+}
+
+
+.cloud-atlas-flowdata-file::before {
+  content: "CloudAtlas Flow Data";
+  display: block;
+  font-size: var(--font-larger);
+  color: var(--foreground-secondary-alt);;
+  background-color: var(--background-secondary-alt);
+  padding: var(--size-4-3);
+  border-top: 2px solid var(--text-accent-hover);
+  border-bottom: 2px solid var(--text-accent-hover);
+  margin-bottom: var(--size-4-3);
+}
+

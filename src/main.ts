@@ -65,6 +65,7 @@ export default class CloudAtlasPlugin extends Plugin {
 				filePath
 			) as TFile;
 
+			// Inherit booleans unless specifically defined.
 			if (previousConfig) {
 				if (flowConfig?.resolveForwardLinks === undefined) {
 					flowConfig.resolveForwardLinks =

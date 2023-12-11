@@ -81,8 +81,6 @@ export default class CloudAtlasPlugin extends Plugin {
 				.substring(flowConfig.frontMatterOffset)
 				.trim();
 
-			console.log(flowContent, flowConfig.frontMatterOffset);
-
 			// Support input from selection
 			input = input ? input : flowContent;
 
@@ -91,8 +89,6 @@ export default class CloudAtlasPlugin extends Plugin {
 				input,
 				additional_context: {},
 			};
-
-			console.debug(user);
 
 			const exclusionPatterns: RegExp[] =
 				this.parseExclusionPatterns(flowConfig?.exclusionPatterns) ||
@@ -138,7 +134,6 @@ export default class CloudAtlasPlugin extends Plugin {
 		const metadata = await this.app.metadataCache.getFileCache(
 			(await this.app.vault.getAbstractFileByPath(filePath)) as TFile
 		);
-		console.debug(metadata);
 
 		return {
 			userPrompt: metadata?.frontmatter?.userPrompt,
@@ -206,8 +201,6 @@ export default class CloudAtlasPlugin extends Plugin {
 		payload.options.generate_embeddings = this.settings.generateEmbeddings;
 		payload.options.wikify = this.settings.wikify;
 
-		console.debug("data: ", payload);
-
 		const notice = new Notice(`Running ${flow} flow ...`, 0);
 		animateNotice(notice);
 
@@ -221,7 +214,6 @@ export default class CloudAtlasPlugin extends Plugin {
 				respJson
 			);
 
-			console.debug("response: ", respJson);
 			this.app.vault.modify(inputFlowFile, output);
 		} catch (e) {
 			console.error(e);
@@ -346,7 +338,7 @@ export default class CloudAtlasPlugin extends Plugin {
 
 	createFolder = async (path: string) => {
 		try {
-			await this.app.vault.createFolder("CloudAtlas");
+			await this.app.vault.createFolder(path);
 		} catch (e) {
 			console.debug(e);
 		}
@@ -365,7 +357,6 @@ export default class CloudAtlasPlugin extends Plugin {
 		if (!data) {
 			return;
 		}
-		// console.log(data);
 
 		const notice = new Notice(`Running Canvas flow ...`, 0);
 		animateNotice(notice);
@@ -393,7 +384,7 @@ export default class CloudAtlasPlugin extends Plugin {
 			this.app.vault.modify(noteFile, JSON.stringify(canvasContent));
 			console.debug("response: ", respJson);
 		} catch (e) {
-			console.log(e);
+			console.error(e);
 			notice.hide();
 			new Notice("Something went wrong. Check the console.");
 		}
@@ -406,7 +397,6 @@ export default class CloudAtlasPlugin extends Plugin {
 	): Promise<CanvasScaffolding | undefined> => {
 		const canvasContentString = await this.app.vault.read(canvasFile);
 		const canvasContent: CanvasContent = JSON.parse(canvasContentString);
-		// console.log(canvasContent);
 		const inputNodes = findInputNode(canvasContent.nodes);
 		if (!inputNodes) {
 			new Notice("Could not find User(Red) node.");
@@ -555,7 +545,7 @@ Say hello to the user.
 				"Created CloudAtlas folder with an example flow. Please configure the plugin to use it."
 			);
 		} catch (e) {
-			console.log("Could not create folder, it likely already exists");
+			console.debug("Could not create folder, it likely already exists");
 		}
 
 		const cloudAtlasFlows = await this.app.vault
@@ -580,7 +570,6 @@ Say hello to the user.
 			id: `run-canvas-flow`,
 			name: `Run Canvas Flow`,
 			checkCallback: (checking: boolean) => {
-				// console.log("checking: ", checking);
 				const noteFile = this.app.workspace.getActiveFile();
 				if (noteFile) {
 					if (noteFile.path.endsWith(".canvas")) {
@@ -597,7 +586,7 @@ Say hello to the user.
 			id: `run-flow-${flow}`,
 			name: `Run ${flow} Flow`,
 			editorCallback: async (editor: Editor, view: MarkdownView) => {
-				this.runFlow(editor, flow).then(() => {});
+				await this.runFlow(editor, flow);
 			},
 		});
 	}

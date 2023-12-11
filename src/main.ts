@@ -82,18 +82,17 @@ export default class CloudAtlasPlugin extends Plugin {
 				.trim();
 
 			// This should happen only on the last step of the stack
-			let input = undefined;
-			if (inputConfig) {
-				input = inputConfig?.selectionInput
-					? inputConfig?.selectionInput
-					: flowContent;
-			}
-
+			let input;
 			let user_prompt;
+
+			// If the flow is a prompt (.flow or .flowdata) , there is no input, and content is treated as the prompt
 			if (inputConfig?.is_prompt) {
 				user_prompt = joinStrings(flowConfig.userPrompt, flowContent);
 			} else {
 				user_prompt = flowConfig.userPrompt;
+				input = inputConfig?.selectionInput
+					? inputConfig?.selectionInput
+					: flowContent;
 			}
 
 			const user: User = {

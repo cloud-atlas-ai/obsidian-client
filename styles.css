@@ -26,7 +26,18 @@ If your plugin does not need CSS, delete this file.
 
 .cloud-atlas-flowdata-file {
   /* Styling for .flowdata.md files */
-  background-color: #e0e0e0; /* Example styling */
-  border-top: 2px solid green; /* Example styling */
-  padding: 5px; /* Example styling */
+  width: auto;
 }
+
+
+.cloud-atlas-flowdata-file::before {
+  content: "CloudAtlas Flow Data";
+  display: block;
+  font-size: 20px;
+  color: #000;
+  background-color: #f0f0f0;
+  padding: 10px;
+  border-top: 2px solid green;
+  margin-bottom: 10px;
+}
+

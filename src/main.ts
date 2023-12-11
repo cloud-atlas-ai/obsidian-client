@@ -1,4 +1,5 @@
 import {
+	App,
 	Editor,
 	MarkdownView,
 	Notice,
@@ -21,10 +22,10 @@ import {
 } from "./canvas";
 
 import {
-  ViewUpdate,
+	ViewUpdate,
 	PluginValue,
-  EditorView,
-  ViewPlugin
+	EditorView,
+	ViewPlugin
 } from "@codemirror/view";
 
 import { AdditionalContext, Payload, User, FlowConfig } from "./interfaces";
@@ -35,40 +36,7 @@ import {
 	CloudAtlasPluginSettings,
 } from "./settings";
 import { ADDITIONAL_SYSTEM, DEFAULT_SETTINGS } from "./constants";
-
-class FlowHeaderPluginValue implements PluginValue {
-    constructor(private view: EditorView) {
-        this.updateHeader();
-    }
-
-    update(update: ViewUpdate) {
-        this.updateHeader();
-    }
-
-    updateHeader() {
-        const fileContent = this.view.state.doc.toString(); // can't figure out how to get the filename, so we'll just read the file content
-
-        if (fileContent.includes('system_instructions:')) {
-            // Add header for .flow.md files
-            this.view.dom.classList.add("cloud-atlas-flow-file");
-            // Custom logic to display the header for flow files
-        } else if (fileContent.includes('.flowdata.md')) {
-            // Add header for .flowdata.md files
-            this.view.dom.classList.add("cloud-atlas-flowdata-file");
-            // Custom logic to display the header for flowdata files
-        } else {
-            this.view.dom.classList.remove("cloud-atlas-flow-file", "cloud-atlas-flowdata-file");
-            // Remove headers or custom styling if it's not a flow or flowdata file
-        }
-    }
-
-    destroy() {
-
-    }
-}
-
-const flowHeaderPlugin = ViewPlugin.fromClass(FlowHeaderPluginValue);
-
+import { Extension } from "@codemirror/state";
 
 let noticeTimeout: NodeJS.Timeout;
 
@@ -212,9 +180,9 @@ export default class CloudAtlasPlugin extends Plugin {
 		if (fromSelection) {
 			editor.replaceSelection(
 				input +
-					"\n\n---\n\n" +
-					`\u{1F4C4}\u{2194}\u{1F916}` +
-					"\n\n---\n\n"
+				"\n\n---\n\n" +
+				`\u{1F4C4}\u{2194}\u{1F916}` +
+				"\n\n---\n\n"
 			);
 		} else {
 			editor.replaceSelection(
@@ -523,11 +491,53 @@ export default class CloudAtlasPlugin extends Plugin {
 		};
 	};
 
-	async onload() {
-		await this.loadSettings();
-		this.registerEditorExtension(flowHeaderPlugin);
+	private editorExtension: Extension[] = [];
+	updateEditorExtension() {
+		this.editorExtension.length = 0;
+		let myNewExtension = this.createEditorExtension();
+		this.editorExtension.push(myNewExtension);
+		this.app.workspace.updateOptions();
+	}
 
-		try {
+
+	createEditorExtension(): Extension {
+		const app = this.app; // Reference to the app instance
+		return ViewPlugin.fromClass(class {
+			constructor(view: EditorView) {
+				this.updateHeader(view, app);
+			}
+
+			update(update: ViewUpdate) {
+				this.updateHeader(update.view, app);
+			}
+
+			updateHeader(view: EditorView, app: App) {
+				const markdownView = app.workspace.getActiveViewOfType(MarkdownView);
+				if (markdownView && markdownView.file) {
+					const filePath = markdownView.file.path;
+
+					if (filePath.endsWith('.flow.md')) {
+						view.dom.classList.add("cloud-atlas-flow-file");
+					} else if (filePath.endsWith('.flowdata.md')) {
+						view.dom.classList.add("cloud-atlas-flowdata-file");
+					} else {
+						view.dom.classList.remove("cloud-atlas-flow-file", "cloud-atlas-flowdata-file");
+					}
+				}
+			}
+		});
+	}
+
+	async onload() {
+
+
+			await this.loadSettings();
+
+
+
+			try {
+				this.registerEditorExtension(this.editorExtension);
+				this.updateEditorExtension();
 			// Register .flow files as markdown files
 			// this.registerExtensions(["flow"], "markdown");
 
@@ -579,7 +589,7 @@ Say hello to the user.
 				if (noteFile) {
 					if (noteFile.path.endsWith(".canvas")) {
 						if (!checking) {
-							this.canvasOps(noteFile).then(() => {});
+							this.canvasOps(noteFile).then(() => { });
 						}
 						return true;
 					}
@@ -591,12 +601,12 @@ Say hello to the user.
 			id: `run-flow-${flow}`,
 			name: `Run ${flow} Flow`,
 			editorCallback: async (editor: Editor, view: MarkdownView) => {
-				this.runFlow(editor, flow).then(() => {});
+				this.runFlow(editor, flow).then(() => { });
 			},
 		});
 	}
 
-	onunload() {}
+	onunload() { }
 
 	async loadSettings() {
 		this.settings = Object.assign(

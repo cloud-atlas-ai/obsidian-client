@@ -5,6 +5,6 @@
   "minAppVersion": "1.4.16",
   "description": "Interoperability between Obsidian and Cloud Atlas",
   "author": "Cloud Atlas",
-  "authorUrl": "https://github.com/cloud-atlas-ai",
+  "authorUrl": "https://cloud-atlas.ai",
   "isDesktopOnly": false
 }

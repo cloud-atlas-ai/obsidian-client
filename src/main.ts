@@ -19,6 +19,14 @@ import {
 	CanvasScaffolding,
 	textNode,
 } from "./canvas";
+
+import {
+  ViewUpdate,
+	PluginValue,
+  EditorView,
+  ViewPlugin
+} from "@codemirror/view";
+
 import { AdditionalContext, Payload, User, FlowConfig } from "./interfaces";
 import { randomUUID } from "crypto";
 import { combinePayloads } from "./utils";
@@ -27,6 +35,40 @@ import {
 	CloudAtlasPluginSettings,
 } from "./settings";
 import { ADDITIONAL_SYSTEM, DEFAULT_SETTINGS } from "./constants";
+
+class FlowHeaderPluginValue implements PluginValue {
+    constructor(private view: EditorView) {
+        this.updateHeader();
+    }
+
+    update(update: ViewUpdate) {
+        this.updateHeader();
+    }
+
+    updateHeader() {
+        const fileContent = this.view.state.doc.toString(); // can't figure out how to get the filename, so we'll just read the file content
+
+        if (fileContent.includes('system_instructions:')) {
+            // Add header for .flow.md files
+            this.view.dom.classList.add("cloud-atlas-flow-file");
+            // Custom logic to display the header for flow files
+        } else if (fileContent.includes('.flowdata.md')) {
+            // Add header for .flowdata.md files
+            this.view.dom.classList.add("cloud-atlas-flowdata-file");
+            // Custom logic to display the header for flowdata files
+        } else {
+            this.view.dom.classList.remove("cloud-atlas-flow-file", "cloud-atlas-flowdata-file");
+            // Remove headers or custom styling if it's not a flow or flowdata file
+        }
+    }
+
+    destroy() {
+
+    }
+}
+
+const flowHeaderPlugin = ViewPlugin.fromClass(FlowHeaderPluginValue);
+
 
 let noticeTimeout: NodeJS.Timeout;
 
@@ -483,6 +525,7 @@ export default class CloudAtlasPlugin extends Plugin {
 
 	async onload() {
 		await this.loadSettings();
+		this.registerEditorExtension(flowHeaderPlugin);
 
 		try {
 			// Register .flow files as markdown files

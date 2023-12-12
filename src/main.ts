@@ -23,9 +23,15 @@ import {
 
 import { ViewUpdate, EditorView, ViewPlugin } from "@codemirror/view";
 
-import { AdditionalContext, Payload, User, FlowConfig } from "./interfaces";
+import {
+	AdditionalContext,
+	Payload,
+	User,
+	FlowConfig,
+	PayloadConfig,
+} from "./interfaces";
 import { randomUUID } from "crypto";
-import { combinePayloads } from "./utils";
+import { combinePayloads, joinStrings } from "./utils";
 import {
 	CloudAtlasGlobalSettingsTab,
 	CloudAtlasPluginSettings,
@@ -54,17 +60,40 @@ const animateNotice = (notice: Notice) => {
 export default class CloudAtlasPlugin extends Plugin {
 	settings: CloudAtlasPluginSettings;
 
+	combineFlows = async (paths: string[]): Promise<Payload | null> => {
+		const uniquePaths = [...new Set(paths)];
+		const previous: PayloadConfig = {
+			payload: {
+				user: { input: undefined },
+				system: "",
+			},
+			config: null,
+		};
+		for (const path of uniquePaths) {
+			const { payload, config } = await this.pathToPayload(
+				path,
+				previous.config
+			);
+			if (payload) {
+				previous.payload = combinePayloads(previous.payload, payload);
+				previous.config = config;
+			}
+		}
+		return previous.payload;
+	};
+
 	pathToPayload = async (
 		filePath: string,
-		input?: string,
-		previousConfig?: FlowConfig | null
-	): Promise<{ payload: Payload | null; config: FlowConfig | null }> => {
+		previousConfig?: FlowConfig | null,
+		inputConfig?: { selectionInput?: string; is_prompt: boolean }
+	): Promise<PayloadConfig> => {
 		try {
 			const flowConfig = await this.flowConfigFromPath(filePath);
 			const flowFile = this.app.vault.getAbstractFileByPath(
 				filePath
 			) as TFile;
 
+			// Inherit booleans unless specifically defined.
 			if (previousConfig) {
 				if (flowConfig?.resolveForwardLinks === undefined) {
 					flowConfig.resolveForwardLinks =
@@ -81,11 +110,22 @@ export default class CloudAtlasPlugin extends Plugin {
 				.substring(flowConfig.frontMatterOffset)
 				.trim();
 
-			// Support input from selection
-			input = input ? input : flowContent;
+			// This should happen only on the last step of the stack
+			let input;
+			let user_prompt;
+
+			// If the flow is a prompt (.flow or .flowdata) , there is no input, and content is treated as the prompt
+			if (inputConfig?.is_prompt) {
+				user_prompt = joinStrings(flowConfig.userPrompt, flowContent);
+			} else {
+				user_prompt = flowConfig.userPrompt;
+				input = inputConfig?.selectionInput
+					? inputConfig?.selectionInput
+					: flowContent;
+			}
 
 			const user: User = {
-				user_prompt: flowConfig.userPrompt,
+				user_prompt,
 				input,
 				additional_context: {},
 			};
@@ -158,7 +198,6 @@ export default class CloudAtlasPlugin extends Plugin {
 		const dataFlowFilePath = normalizePath(
 			`CloudAtlas/${flow}.flowdata.md`
 		);
-		const dataIsInput = inputFlowFile?.path === dataFlowFilePath;
 
 		const input = editor.getSelection();
 		const fromSelection = Boolean(input);
@@ -180,21 +219,18 @@ export default class CloudAtlasPlugin extends Plugin {
 			);
 		}
 
-		const { payload: templateFlowPayload, config: templateFlowConfig } =
-			await this.pathToPayload(templateFlowFilePath);
-
-		const { payload: dataFlowPayload, config: dataFlowConfig } = dataIsInput
-			? { payload: null, config: templateFlowConfig }
-			: await this.pathToPayload(dataFlowFilePath);
-
-		const { payload: inputPayload } = await this.pathToPayload(
+		const flows = [
+			templateFlowFilePath,
+			dataFlowFilePath,
 			inputFlowFile.path,
-			input,
-			dataFlowConfig || templateFlowConfig
-		);
+		];
 
-		let payload = combinePayloads(templateFlowPayload, dataFlowPayload);
-		payload = combinePayloads(payload, inputPayload);
+		const payload = await this.combineFlows(flows);
+
+		if (!payload) {
+			throw new Error("Could not construct payload!");
+			return;
+		}
 
 		payload.options = payload.options || {};
 		payload.options.entity_recognition = this.settings.entityRecognition;

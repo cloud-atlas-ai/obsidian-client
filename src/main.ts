@@ -8,7 +8,6 @@ import {
 	normalizePath,
 } from "obsidian";
 import {
-	CANVAS_CONTENT,
 	CanvasContent,
 	FileNode,
 	findNodeEdges,
@@ -19,6 +18,7 @@ import {
 	NodeType,
 	CanvasScaffolding,
 	textNode,
+	payloadToGraph,
 } from "./canvas";
 
 import { ViewUpdate, EditorView, ViewPlugin } from "@codemirror/view";
@@ -38,6 +38,7 @@ import {
 } from "./settings";
 import {
 	ADDITIONAL_SYSTEM,
+	CANVAS_CONTENT,
 	DEFAULT_SETTINGS,
 	exampleFlowString,
 } from "./constants";
@@ -65,24 +66,58 @@ const animateNotice = (notice: Notice) => {
 export default class CloudAtlasPlugin extends Plugin {
 	settings: CloudAtlasPluginSettings;
 
-	combineFlows = async (paths: string[]): Promise<Payload | null> => {
+	collectInputsIntoPayload = async (
+		input: string | undefined,
+		inputFlowFile: TFile,
+		flow: string
+	): Promise<Payload | null> => {
+		const templateFlowFilePath = normalizePath(
+			`CloudAtlas/${flow}.flow.md`
+		);
+		const dataFlowFilePath = normalizePath(
+			`CloudAtlas/${flow}.flowdata.md`
+		);
+
+		const flows = [
+			templateFlowFilePath,
+			dataFlowFilePath,
+			inputFlowFile.path,
+		];
+
+		const payload = await this.combineFlows(flows, input);
+
+		return payload;
+	};
+
+	combineFlows = async (
+		paths: string[],
+		input: string | undefined
+	): Promise<Payload | null> => {
 		const uniquePaths = [...new Set(paths)];
 		const previous: PayloadConfig = {
 			payload: {
-				user: { input: undefined },
+				user: { input },
 				system: "",
 			},
 			config: null,
 		};
+		const inputConfig = { selectionInput: input, is_prompt: true };
+		const last_index = uniquePaths.length - 1;
+		let index = 0;
 		for (const path of uniquePaths) {
+			if (index == last_index) {
+				inputConfig.is_prompt = false;
+			}
 			const { payload, config } = await this.pathToPayload(
 				path,
-				previous.config
+				previous.config,
+				inputConfig
 			);
 			if (payload) {
 				previous.payload = combinePayloads(previous.payload, payload);
 				previous.config = config;
 			}
+			index++;
 		}
 		return previous.payload;
 	};
@@ -197,19 +232,13 @@ export default class CloudAtlasPlugin extends Plugin {
 
 	runFlow = async (editor: Editor, flow: string) => {
 		const inputFlowFile = this.app.workspace.getActiveFile();
-		const templateFlowFilePath = normalizePath(
-			`CloudAtlas/${flow}.flow.md`
-		);
-		const dataFlowFilePath = normalizePath(
-			`CloudAtlas/${flow}.flowdata.md`
-		);
+
+		if (!inputFlowFile) {
+			return null;
+		}
 
 		const input = editor.getSelection();
 		const fromSelection = Boolean(input);
-
-		if (!inputFlowFile) {
-			return;
-		}
 
 		if (fromSelection) {
 			editor.replaceSelection(
@@ -224,17 +253,14 @@ export default class CloudAtlasPlugin extends Plugin {
 			);
 		}
 
-		const flows = [
-			templateFlowFilePath,
-			dataFlowFilePath,
-			inputFlowFile.path,
-		];
-
-		const payload = await this.combineFlows(flows);
+		const payload = await this.collectInputsIntoPayload(
+			input,
+			inputFlowFile,
+			flow
+		);
 
 		if (!payload) {
 			throw new Error("Could not construct payload!");
-			return;
 		}
 
 		payload.options = payload.options || {};
@@ -632,6 +658,47 @@ export default class CloudAtlasPlugin extends Plugin {
 			name: `Run ${flow} Flow`,
 			editorCallback: async (editor: Editor, view: MarkdownView) => {
 				await this.runFlow(editor, flow);
+			},
+		});
+
+		this.addCommand({
+			id: `compile-flow`,
+			name: `Compile ${flow} Flow`,
+			editorCallback: async (editor: Editor, view: MarkdownView) => {
+				const input = editor.getSelection();
+				const inputFlowFile = this.app.workspace.getActiveFile();
+
+				if (!inputFlowFile) {
+					return null;
+				}
+				const payload = await this.collectInputsIntoPayload(
+					input,
+					inputFlowFile,
+					flow
+				);
+
+				if (!payload) {
+					throw new Error("Could not construct payload!");
+				}
+
+				const canvasContent = payloadToGraph(payload);
+
+				const canvasFilePath = `CloudAtlas/${flow}.canvas`;
+				const canvasFile = await this.app.vault.getAbstractFileByPath(
+					canvasFilePath
+				);
+
+				if (!canvasFile) {
+					this.app.vault.create(
+						`CloudAtlas/${flow}.canvas`,
+						JSON.stringify(canvasContent)
+					);
+				} else {
+					this.app.vault.modify(
+						canvasFile as TFile,
+						JSON.stringify(canvasContent)
+					);
+				}
 			},
 		});
 	}

@@ -38,8 +38,8 @@ export function textNode(
 		text: text,
 		x: x ? x : 0,
 		y: y ? y : 0,
-		width: width ? width : 400,
-		height: height ? height : 400,
+		width: width ? width : 200,
+		height: height ? height : 200,
 		color: undefined,
 	};
 }
@@ -107,70 +107,84 @@ export interface CanvasContent {
 	edges: Edge[];
 }
 
-export const CANVAS_CONTENT: CanvasContent = {
-	nodes: [
-		{
-			id: "9ca0dce906eb2b17",
-			type: "file",
-			file: "CloudAtlas/example/user.md",
-			x: -80,
-			y: -220,
-			width: 340,
-			height: 120,
-			color: "1",
-		},
-		{
-			id: "bdda4ed7429cf432",
-			x: -391,
-			y: -201,
-			width: 222,
-			height: 82,
-			color: "2",
-			type: "file",
-			file: "CloudAtlas/example/user_prompt.md",
-		},
-		{
-			id: "5641ca8bb2160e07",
-			type: "file",
-			file: "CloudAtlas/example/additional context.md",
-			x: -55,
-			y: -460,
-			width: 290,
-			height: 100,
-			color: "4",
-		},
-		{
-			id: "9faa2aea9699bf3f",
-			x: -53,
-			y: 20,
-			width: 288,
-			height: 147,
-			color: "5",
-			type: "file",
-			file: "CloudAtlas/example/system.md",
-		},
-	],
-	edges: [
-		{
-			id: "89a5ba1776cd58a5",
-			fromNode: "5641ca8bb2160e07",
-			fromSide: "bottom",
-			toNode: "9ca0dce906eb2b17",
-			toSide: "top",
-		},
-		{
-			id: "4864dab35edffc85",
-			fromNode: "9faa2aea9699bf3f",
+export const payloadToGraph = (payload: Payload): CanvasContent => {
+	const nodes: Node[] = [];
+	const edges: Edge[] = [];
+
+	let userPromptNode: TextNode | undefined;
+	let inputNode: TextNode | undefined;
+	let systemNode: TextNode | undefined;
+
+	if (payload.user?.input) {
+		inputNode = textNode(payload.user.input, 600, 500);
+		inputNode.color = Color.Red;
+		nodes.push(inputNode);
+	}
+
+	if (payload.user?.user_prompt) {
+		userPromptNode = textNode(payload.user.user_prompt, 500, 750);
+		userPromptNode.color = Color.Orange;
+		nodes.push(userPromptNode);
+	}
+
+	if (userPromptNode && inputNode) {
+		const userPromptEdge: Edge = {
+			id: randomUUID(),
+			fromNode: userPromptNode.id,
 			fromSide: "top",
-			toNode: "9ca0dce906eb2b17",
+			toNode: inputNode.id,
 			toSide: "bottom",
-		},
-		{
-			id: "6a6497073b3e0475",
-			fromNode: "bdda4ed7429cf432",
-			fromSide: "right",
-			toNode: "9ca0dce906eb2b17",
-			toSide: "left",
-		},
-	],
+		};
+		edges.push(userPromptEdge);
+	}
+
+	if (payload.system) {
+		systemNode = textNode(payload.system, 500, 250);
+		systemNode.color = Color.Blue;
+		nodes.push(systemNode);
+	}
+
+	if (systemNode && inputNode) {
+		const systemEdge: Edge = {
+			id: randomUUID(),
+			fromNode: systemNode.id,
+			fromSide: "bottom",
+			toNode: inputNode.id,
+			toSide: "top",
+		};
+		edges.push(systemEdge);
+	}
+
+	const additionalContextNodes: TextNode[] = [];
+
+	if (payload.user?.additional_context) {
+		Object.keys(payload.user.additional_context).forEach((key, index) => {
+			const additionalContextNode: TextNode = textNode(
+				payload.user.additional_context[key]
+			);
+			additionalContextNode.color = Color.Green;
+			additionalContextNodes.push(additionalContextNode);
+			nodes.push(additionalContextNode);
+		});
+	}
+
+	const additionalContextEdges: Edge[] = [];
+	if (inputNode) {
+		additionalContextNodes.forEach((node) => {
+			const edge: Edge = {
+				id: randomUUID(),
+				fromNode: node.id,
+				fromSide: "right",
+				toNode: inputNode.id,
+				toSide: "left",
+			};
+			additionalContextEdges.push(edge);
+			edges.push(edge);
+		});
+	}
+
+	return {
+		nodes: nodes,
+		edges: edges,
+	};
 };

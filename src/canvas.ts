@@ -157,14 +157,21 @@ export const payloadToGraph = (payload: Payload): CanvasContent => {
 
 	const additionalContextNodes: TextNode[] = [];
 
+	let addX = 250;
+	let addY = 350;
+
 	if (payload.user?.additional_context) {
 		Object.keys(payload.user.additional_context).forEach((key, index) => {
 			const additionalContextNode: TextNode = textNode(
-				payload.user.additional_context[key]
+				payload.user.additional_context[key],
+				addX,
+				addY
 			);
 			additionalContextNode.color = Color.Green;
 			additionalContextNodes.push(additionalContextNode);
 			nodes.push(additionalContextNode);
+			addX += 25;
+			addY += 25;
 		});
 	}
 

@@ -598,7 +598,7 @@ export default class CloudAtlasPlugin extends Plugin {
 
 			await this.create("CloudAtlas/example.flow.md", exampleFlowString);
 
-			await this.createFlow("Example");
+			// await this.createFlow("Example");
 			new Notice(
 				"Created CloudAtlas folder with an example flow. Please configure the plugin to use it."
 			);
@@ -620,10 +620,6 @@ export default class CloudAtlasPlugin extends Plugin {
 			this.addNewCommand(this, flow);
 		});
 
-		this.addSettingTab(new CloudAtlasGlobalSettingsTab(this.app, this));
-	}
-
-	private addNewCommand(plugin: CloudAtlasPlugin, flow: string): void {
 		this.addCommand({
 			id: `create-flow`,
 			name: `Create new flow`,
@@ -653,6 +649,10 @@ export default class CloudAtlasPlugin extends Plugin {
 			},
 		});
 
+		this.addSettingTab(new CloudAtlasGlobalSettingsTab(this.app, this));
+	}
+
+	private addNewCommand(plugin: CloudAtlasPlugin, flow: string): void {
 		this.addCommand({
 			id: `run-flow-${flow}`,
 			name: `Run ${flow} Flow`,
@@ -662,7 +662,7 @@ export default class CloudAtlasPlugin extends Plugin {
 		});
 
 		this.addCommand({
-			id: `compile-flow`,
+			id: `compile-flow-${flow}`,
 			name: `Compile ${flow} Flow`,
 			editorCallback: async (editor: Editor, view: MarkdownView) => {
 				const input = editor.getSelection();

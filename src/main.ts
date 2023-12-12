@@ -36,8 +36,13 @@ import {
 	CloudAtlasGlobalSettingsTab,
 	CloudAtlasPluginSettings,
 } from "./settings";
-import { ADDITIONAL_SYSTEM, DEFAULT_SETTINGS } from "./constants";
+import {
+	ADDITIONAL_SYSTEM,
+	DEFAULT_SETTINGS,
+	exampleFlowString,
+} from "./constants";
 import { Extension } from "@codemirror/state";
+import { randomName } from "./namegenerator";
 
 let noticeTimeout: NodeJS.Timeout;
 
@@ -565,15 +570,6 @@ export default class CloudAtlasPlugin extends Plugin {
 
 			await this.createFolder("CloudAtlas");
 
-			const exampleFlowString = `---
-system_instructions: You are a helpful assistant.
-resolveBacklinks: true
-resolveForwardLinks: true
-exclusionPattern: ["^Private/", ".*-confidential.*"]
----
-
-Say hello to the user.
-`;
 			await this.create("CloudAtlas/example.flow.md", exampleFlowString);
 
 			await this.createFlow("Example");
@@ -602,6 +598,19 @@ Say hello to the user.
 	}
 
 	private addNewCommand(plugin: CloudAtlasPlugin, flow: string): void {
+		this.addCommand({
+			id: `create-flow`,
+			name: `Create new flow`,
+			callback: async () => {
+				const name = randomName();
+				this.app.vault.create(
+					`CloudAtlas/${name}.flow.md`,
+					exampleFlowString
+				);
+				this.app.vault.create(`CloudAtlas/${name}.flowdata.md`, "");
+			},
+		});
+
 		this.addCommand({
 			id: `run-canvas-flow`,
 			name: `Run Canvas Flow`,

@@ -31,7 +31,7 @@ jobs:
         cp manifest.json dist/
         cp styles.css dist/
         cp README.md dist/
-        cp dist/main.js dist/manifest.json ${{ env.PLUGIN_NAME }}
+        cp dist/main.js dist/manifest.json dist/styles.css dist/README.md ${{ env.PLUGIN_NAME }}
         zip -r ${{ env.PLUGIN_NAME }}.zip ${{ env.PLUGIN_NAME }}
         ls dist/
     - name: Create release
@@ -42,5 +42,5 @@ jobs:
         gh release create "$tag" \
             --title="$tag" \
             --draft \
-            dist/main.js dist/manifest.json dist/main-debug.js dist/styles.css dist/README.md \
+            dist/main-debug.js \
             ${{ env.PLUGIN_NAME }}.zip

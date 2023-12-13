@@ -163,6 +163,7 @@ export const payloadToGraph = (payload: Payload): CanvasContent => {
 	if (payload.user?.additional_context) {
 		Object.keys(payload.user.additional_context).forEach((key, index) => {
 			const additionalContextNode: TextNode = textNode(
+				// @ts-ignore @typescript-eslint/strictNullChecks
 				payload.user.additional_context[key],
 				addX,
 				addY
@@ -182,6 +183,7 @@ export const payloadToGraph = (payload: Payload): CanvasContent => {
 				id: randomUUID(),
 				fromNode: node.id,
 				fromSide: "right",
+				// @ts-ignore @typescript-eslint/strictNullChecks
 				toNode: inputNode.id,
 				toSide: "left",
 			};

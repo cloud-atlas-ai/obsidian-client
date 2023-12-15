@@ -4,6 +4,7 @@ import { NamedEntity } from "./interfaces";
 
 export interface CloudAtlasPluginSettings {
 	apiKey: string;
+	useOpenAi: boolean;
 	previewMode: boolean;
 	entityRecognition: boolean;
 	generateEmbeddings: boolean;
@@ -58,6 +59,20 @@ export class CloudAtlasGlobalSettingsTab extends PluginSettingTab {
 					.setValue(this.plugin.settings.apiKey)
 					.onChange(async (value) => {
 						this.plugin.settings.apiKey = value;
+						await this.plugin.saveSettings();
+					})
+			);
+
+		new Setting(containerEl)
+			.setName("Use OpenAi")
+			.setDesc(
+				"We use AzureAi by default, this will use OpenAi, models are identical, so there should not be a meaningful difference in results."
+			)
+			.addToggle((toggle) =>
+				toggle
+					.setValue(this.plugin.settings.useOpenAi)
+					.onChange(async (value) => {
+						this.plugin.settings.useOpenAi = value;
 						await this.plugin.saveSettings();
 					})
 			);

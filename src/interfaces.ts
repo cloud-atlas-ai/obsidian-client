@@ -2,6 +2,7 @@ export interface Payload {
 	user: User;
 	system?: string;
 	options?: Options;
+	provider?: "azureai" | "openai";
 }
 
 export interface Options {

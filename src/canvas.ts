@@ -1,5 +1,6 @@
 import { randomUUID } from "crypto";
 import { Payload } from "./interfaces";
+import { readFileSync } from "fs";
 
 export type Node = FileNode | TextNode;
 
@@ -12,6 +13,29 @@ export interface FileNode {
 	width: number;
 	height: number;
 	color: string;
+}
+
+export function isFileNode(node: Node): boolean {
+	return Boolean((node as FileNode).file);
+}
+
+export function isImageNode(node: FileNode): boolean {
+	return (
+		node.file.endsWith(".png") ||
+		node.file.endsWith(".jpg") ||
+		node.file.endsWith(".jpeg") ||
+		node.file.endsWith(".gif")
+	);
+}
+
+export async function getImageNodeContent(
+	basePath: string,
+	node: FileNode
+): Promise<string> {
+	const contents = readFileSync(`${basePath}/${node.file}`);
+	const buffedInput = Buffer.from(contents).toString("base64");
+
+	return `data:image/png;base64,${buffedInput}`;
 }
 
 export interface TextNode {

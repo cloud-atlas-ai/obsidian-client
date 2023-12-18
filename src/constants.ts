@@ -12,6 +12,7 @@ export const DEFAULT_SETTINGS: CloudAtlasPluginSettings = {
 	wikify: [],
 	canvasResolveLinks: false,
 	canvasResolveBacklinks: false,
+	useOpenAi: false,
 };
 
 export const exampleFlowString = `---

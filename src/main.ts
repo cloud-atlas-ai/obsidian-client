@@ -19,6 +19,9 @@ import {
 	CanvasScaffolding,
 	textNode,
 	payloadToGraph,
+	isImageNode,
+	getImageNodeContent,
+	isFileNode,
 } from "./canvas";
 
 import { ViewUpdate, EditorView, ViewPlugin } from "@codemirror/view";
@@ -363,9 +366,12 @@ export default class CloudAtlasPlugin extends Plugin {
 	};
 
 	apiFetch = async (payload: Payload): Promise<string> => {
+		console.log(payload);
 		const url = this.settings.previewMode
 			? "https://dev-api.cloud-atlas.ai/run"
 			: "https://api.cloud-atlas.ai/run";
+		payload.options = {};
+		payload.provider = this.settings.useOpenAi ? "openai" : "azureai";
 		const response = await fetch(url, {
 			headers: {
 				"x-api-key": this.settings.apiKey,
@@ -382,15 +388,21 @@ export default class CloudAtlasPlugin extends Plugin {
 		if (node.type == "text") {
 			return this.getTextNodeContent(node as TextNode);
 		} else if (node.type == "file") {
-			return this.getFileNodeContent(node as FileNode);
+			if (isImageNode(node as FileNode)) {
+				// eslint-disable-next-line @typescript-eslint/no-explicit-any
+				const basePath = (this.app.vault.adapter as any).basePath;
+				return await getImageNodeContent(basePath, node as FileNode);
+			} else {
+				return await this.getFileNodeContent(node as FileNode);
+			}
 		}
 	};
 
-	getTextNodeContent = async (node: TextNode) => {
+	getTextNodeContent = (node: TextNode) => {
 		return node.text;
 	};
 
-	getFileNodeContent = async (node: FileNode) => {
+	getFileNodeContent = async (node: FileNode): Promise<string> => {
 		const nodeFile = this.app.vault.getAbstractFileByPath(node.file);
 		const nodeContent = await this.app.vault.read(nodeFile as TFile);
 		return nodeContent;
@@ -504,7 +516,10 @@ export default class CloudAtlasPlugin extends Plugin {
 		).map(async (node) => {
 			const content = await this.getNodeContent(node);
 			if (content) {
-				additional_context[node.id] = content;
+				const key = isFileNode(node)
+					? (node as FileNode).file
+					: node.id;
+				additional_context[key] = content;
 			}
 		});
 		await Promise.all(promises);

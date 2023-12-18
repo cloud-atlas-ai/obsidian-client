@@ -35,6 +35,17 @@ export async function getImageNodeContent(
 	const contents = readFileSync(`${basePath}/${node.file}`);
 	const buffedInput = Buffer.from(contents).toString("base64");
 
+	// use the file extension to determine the mime type
+	// can we use a case statement here?
+	if (node.file.endsWith(".png")) {
+		return `data:image/png;base64,${buffedInput}`;
+	} else if (node.file.endsWith(".jpg") || node.file.endsWith(".jpeg")) {
+		return `data:image/jpeg;base64,${buffedInput}`;
+	} else if (node.file.endsWith(".gif")) {
+		return `data:image/gif;base64,${buffedInput}`;
+	}
+
+	// default to png
 	return `data:image/png;base64,${buffedInput}`;
 }
 

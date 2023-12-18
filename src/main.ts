@@ -443,20 +443,21 @@ export default class CloudAtlasPlugin extends Plugin {
 		try {
 			const respJson = await this.apiFetch(data.payload);
 
-			const responseNode = textNode(respJson);
+			const inputNodes = findInputNode(data.canvas.nodes);
+			const canvasContent = data.canvas;
 
-			const canvasContentString = await this.app.vault.read(noteFile);
-			const canvasContent: CanvasContent =
-				JSON.parse(canvasContentString);
-
-			const inputNodes = findInputNode(canvasContent.nodes);
+			const responseNode = textNode(
+				respJson,
+				inputNodes[0].x + inputNodes[0].width + 100,
+				inputNodes[0].y
+			);
 
 			canvasContent.edges.push({
 				id: randomUUID(),
 				fromNode: inputNodes[0].id,
-				fromSide: "bottom",
+				fromSide: "right",
 				toNode: responseNode.id,
-				toSide: "top",
+				toSide: "left",
 			});
 
 			canvasContent.nodes.push(responseNode);

@@ -622,7 +622,7 @@ export default class CloudAtlasPlugin extends Plugin {
 			console.debug("Could not create folder, it likely already exists");
 		}
 
-		const cloudAtlasFlows = await this.app.vault
+		const cloudAtlasFlows = this.app.vault
 			.getFiles()
 			.filter(
 				(file) =>

@@ -1,5 +1,5 @@
 import { readFileSync } from "fs";
-
+import WordExtractor from "word-extractor";
 import { AdditionalContext, Payload, User } from "./interfaces";
 
 export function combinePayloads(
@@ -68,6 +68,27 @@ export function isImage(path: string): boolean {
 		path.endsWith(".jpeg") ||
 		path.endsWith(".gif")
 	);
+}
+
+export function isWord(path: string): boolean {
+	return path.endsWith(".docx") || path.endsWith(".doc");
+}
+
+export function isMarkdown(path: string): boolean {
+	return path.endsWith(".md");
+}
+
+export function isOtherText(path: string): boolean {
+	return !(isImage(path) && !isMarkdown(path));
+}
+
+export async function getWordContents(
+	basePath: string,
+	path: string
+): Promise<string | undefined> {
+	const extractor = new WordExtractor();
+	const extracted = await extractor.extract(`${basePath}/${path}`);
+	return extracted.getBody();
 }
 
 export function getFileContents(

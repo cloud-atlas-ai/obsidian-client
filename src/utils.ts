@@ -96,10 +96,10 @@ export function getFileContents(
 	path: string
 ): string | undefined {
 	const contents = readFileSync(`${basePath}/${path}`);
-
 	try {
-		return Buffer.from(contents).toString("utf8");
+		return new TextDecoder("utf8", { fatal: true }).decode(contents);
 	} catch (e) {
-		console.log(e);
+		console.debug(e);
+		return;
 	}
 }

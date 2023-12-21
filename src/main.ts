@@ -367,9 +367,10 @@ export default class CloudAtlasPlugin extends Plugin {
 
 	apiFetch = async (payload: Payload): Promise<string> => {
 		console.log(payload);
-		const url = this.settings.previewMode
+		let url = this.settings.previewMode
 			? "https://dev-api.cloud-atlas.ai/run"
 			: "https://api.cloud-atlas.ai/run";
+		url = this.settings.developmentMode ? "http://localhost:8787/run" : url;
 		payload.options = {};
 		payload.provider = this.settings.useOpenAi ? "openai" : "azureai";
 		const response = await fetch(url, {

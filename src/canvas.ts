@@ -1,6 +1,6 @@
 import { randomUUID } from "crypto";
 import { Payload } from "./interfaces";
-import { readFileSync } from "fs";
+import { getImageContent } from "./utils";
 
 export type Node = FileNode | TextNode;
 
@@ -19,34 +19,11 @@ export function isFileNode(node: Node): boolean {
 	return Boolean((node as FileNode).file);
 }
 
-export function isImageNode(node: FileNode): boolean {
-	return (
-		node.file.endsWith(".png") ||
-		node.file.endsWith(".jpg") ||
-		node.file.endsWith(".jpeg") ||
-		node.file.endsWith(".gif")
-	);
-}
-
 export async function getImageNodeContent(
 	basePath: string,
 	node: FileNode
 ): Promise<string> {
-	const contents = readFileSync(`${basePath}/${node.file}`);
-	const buffedInput = Buffer.from(contents).toString("base64");
-
-	// use the file extension to determine the mime type
-	// can we use a case statement here?
-	if (node.file.endsWith(".png")) {
-		return `data:image/png;base64,${buffedInput}`;
-	} else if (node.file.endsWith(".jpg") || node.file.endsWith(".jpeg")) {
-		return `data:image/jpeg;base64,${buffedInput}`;
-	} else if (node.file.endsWith(".gif")) {
-		return `data:image/gif;base64,${buffedInput}`;
-	}
-
-	// default to png
-	return `data:image/png;base64,${buffedInput}`;
+	return getImageContent(basePath, node.file);
 }
 
 export interface TextNode {

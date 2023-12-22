@@ -13,6 +13,7 @@ export const DEFAULT_SETTINGS: CloudAtlasPluginSettings = {
 	canvasResolveLinks: false,
 	canvasResolveBacklinks: false,
 	useOpenAi: false,
+	developmentMode: false,
 };
 
 export const exampleFlowString = `---

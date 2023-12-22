@@ -19,8 +19,6 @@ import {
 	CanvasScaffolding,
 	textNode,
 	payloadToGraph,
-	isImageNode,
-	getImageNodeContent,
 	isFileNode,
 } from "./canvas";
 
@@ -34,7 +32,16 @@ import {
 	PayloadConfig,
 } from "./interfaces";
 import { randomUUID } from "crypto";
-import { combinePayloads, joinStrings } from "./utils";
+import {
+	combinePayloads,
+	getFileContents,
+	getImageContent,
+	getWordContents,
+	isImage,
+	isOtherText,
+	isWord,
+	joinStrings,
+} from "./utils";
 import {
 	CloudAtlasGlobalSettingsTab,
 	CloudAtlasPluginSettings,
@@ -304,11 +311,22 @@ export default class CloudAtlasPlugin extends Plugin {
 	readAndFilterContent = async (
 		path: string,
 		excludePatterns: RegExp[]
-	): Promise<string> => {
+	): Promise<string | undefined> => {
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		const basePath = (this.app.vault.adapter as any).basePath;
 		if (excludePatterns.some((pattern) => pattern.test(path))) {
 			return ""; // Skip reading if path matches any exclusion pattern
 		}
 		try {
+			if (isImage(path)) {
+				return await getImageContent(basePath, path);
+			}
+			if (isWord(path)) {
+				return await getWordContents(basePath, path);
+			}
+			if (isOtherText(path)) {
+				return getFileContents(basePath, path);
+			}
 			return await this.readNote(path);
 		} catch (e) {
 			console.error(e);
@@ -367,9 +385,10 @@ export default class CloudAtlasPlugin extends Plugin {
 
 	apiFetch = async (payload: Payload): Promise<string> => {
 		console.log(payload);
-		const url = this.settings.previewMode
+		let url = this.settings.previewMode
 			? "https://dev-api.cloud-atlas.ai/run"
 			: "https://api.cloud-atlas.ai/run";
+		url = this.settings.developmentMode ? "http://localhost:8787/run" : url;
 		payload.options = {};
 		payload.provider = this.settings.useOpenAi ? "openai" : "azureai";
 		const response = await fetch(url, {
@@ -384,17 +403,11 @@ export default class CloudAtlasPlugin extends Plugin {
 		return respJson;
 	};
 
-	getNodeContent = async (node: Node) => {
+	getNodeContent = async (node: Node): Promise<string | undefined> => {
 		if (node.type == "text") {
 			return this.getTextNodeContent(node as TextNode);
 		} else if (node.type == "file") {
-			if (isImageNode(node as FileNode)) {
-				// eslint-disable-next-line @typescript-eslint/no-explicit-any
-				const basePath = (this.app.vault.adapter as any).basePath;
-				return await getImageNodeContent(basePath, node as FileNode);
-			} else {
-				return await this.getFileNodeContent(node as FileNode);
-			}
+			return await this.getFileNodeContent(node as FileNode);
 		}
 	};
 
@@ -402,10 +415,10 @@ export default class CloudAtlasPlugin extends Plugin {
 		return node.text;
 	};
 
-	getFileNodeContent = async (node: FileNode): Promise<string> => {
-		const nodeFile = this.app.vault.getAbstractFileByPath(node.file);
-		const nodeContent = await this.app.vault.read(nodeFile as TFile);
-		return nodeContent;
+	getFileNodeContent = async (
+		node: FileNode
+	): Promise<string | undefined> => {
+		return await this.readAndFilterContent(node.file, []);
 	};
 
 	createFlow = async (flow: string) => {
@@ -669,6 +682,7 @@ export default class CloudAtlasPlugin extends Plugin {
 	}
 
 	private addNewCommand(plugin: CloudAtlasPlugin, flow: string): void {
+		console.debug("Adding command for flow: ", flow);
 		this.addCommand({
 			id: `run-flow-${flow}`,
 			name: `Run ${flow} Flow`,

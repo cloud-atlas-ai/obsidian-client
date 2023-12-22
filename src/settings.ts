@@ -11,6 +11,7 @@ export interface CloudAtlasPluginSettings {
 	wikify: string[];
 	canvasResolveLinks: boolean;
 	canvasResolveBacklinks: boolean;
+	developmentMode: boolean;
 }
 
 // TODO: If we only have one tab, we shouldn't have multiple tabs or this will get rejected when we submit it to the store.
@@ -144,6 +145,19 @@ export class CloudAtlasGlobalSettingsTab extends PluginSettingTab {
 					.setValue(this.plugin.settings.canvasResolveBacklinks)
 					.onChange(async (value) => {
 						this.plugin.settings.canvasResolveBacklinks = value;
+						await this.plugin.saveSettings();
+					})
+			);
+
+		containerEl.createEl("h2", { text: "Development" });
+		new Setting(containerEl)
+			.setName("Development mode")
+			.setDesc("Redirects requests to http://localhost:8787")
+			.addToggle((toggle) =>
+				toggle
+					.setValue(this.plugin.settings.developmentMode)
+					.onChange(async (value) => {
+						this.plugin.settings.developmentMode = value;
 						await this.plugin.saveSettings();
 					})
 			);

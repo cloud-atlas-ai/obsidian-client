@@ -1,10 +1,13 @@
 import {
 	App,
 	Editor,
+	FileView,
+	ItemView,
 	MarkdownView,
 	Notice,
 	Plugin,
 	TFile,
+	WorkspaceLeaf,
 	normalizePath,
 } from "obsidian";
 import {
@@ -620,8 +623,17 @@ export default class CloudAtlasPlugin extends Plugin {
 		try {
 			this.registerEditorExtension(this.editorExtension);
 			this.updateEditorExtension();
-			// Register .flow files as markdown files
-			// this.registerExtensions(["flow"], "markdown");
+			this.app.workspace.onLayoutReady(() => {
+				this.updateFlowCanvasClass(this.app.workspace.getActiveFile());
+			});
+
+			this.registerEvent(this.app.workspace.on("active-leaf-change", (leaf) => {
+				const view = leaf?.view instanceof FileView ? leaf.view : null;
+				const file = view ? view.file : null;
+				if (file?.extension === "canvas") {
+					this.updateFlowCanvasClass(file);
+				}
+			}));
 
 			await this.createFolder("CloudAtlas");
 
@@ -679,6 +691,27 @@ export default class CloudAtlasPlugin extends Plugin {
 		});
 
 		this.addSettingTab(new CloudAtlasGlobalSettingsTab(this.app, this));
+	}
+	updateFlowCanvasClass(file: TFile | null) {
+		const leafType = this.app.workspace.getActiveViewOfType(ItemView)?.getViewType();
+		activeDocument.body.classList.remove('cloud-atlas-flow-canvas');
+		if (file && file.extension === "canvas" && leafType === "canvas" && file.name.endsWith(".flow.canvas")) {
+			activeDocument.body.addClass("cloud-atlas-flow-canvas");
+		}
+	}
+
+	getLeafByPath(filePath: string): WorkspaceLeaf[] {
+		const allSpecificLeafs: WorkspaceLeaf[] = [];
+		this.app.workspace.iterateAllLeaves((leaf) => {
+			if (leaf.view instanceof FileView) {
+				const view = leaf.view as FileView;
+				if (view.file?.path === filePath) {
+					allSpecificLeafs.push(leaf);
+				}
+			}
+		});
+
+		return allSpecificLeafs;
 	}
 
 	private addNewCommand(plugin: CloudAtlasPlugin, flow: string): void {

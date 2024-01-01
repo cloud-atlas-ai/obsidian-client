@@ -9,52 +9,107 @@ If your plugin does not need CSS, delete this file.
 
 /* CSS file in your plugin's directory */
 .cloud-atlas-flow-file {
-  /* Styling for .flow.md files */
-  width: auto;
+	/* Styling for .flow.md files */
+	width: auto;
 }
 
 .cloud-atlas-flow-file::before {
-  content: "CloudAtlas Flow";
-  display: block;
-  font-size: var(--font-larger);
-  color: var(--foreground-secondary);
-  background-color: var(--background-secondary);
-  padding: var(--size-4-3);
-  border-top: 2px solid var(--text-accent);
-  border-bottom: 2px solid var(--text-accent);
-  margin-bottom: var(--size-4-3);
+	content: "CloudAtlas Flow";
+	display: block;
+	font-size: var(--font-larger);
+	color: var(--foreground-secondary);
+	background-color: var(--background-secondary);
+	padding: var(--size-4-3);
+	border-top: 2px solid var(--text-accent);
+	border-bottom: 2px solid var(--text-accent);
+	margin-bottom: var(--size-4-3);
 }
 
 .cloud-atlas-flowdata-file {
-  /* Styling for .flowdata.md files */
-  width: auto;
+	/* Styling for .flowdata.md files */
+	width: auto;
 }
-
 
 .cloud-atlas-flowdata-file::before {
-  content: "CloudAtlas Flow Data";
-  display: block;
-  font-size: var(--font-larger);
-  color: var(--foreground-secondary-alt);;
-  background-color: var(--background-secondary-alt);
-  padding: var(--size-4-3);
-  border-top: 2px solid var(--text-accent-hover);
-  border-bottom: 2px solid var(--text-accent-hover);
-  margin-bottom: var(--size-4-3);
+	content: "CloudAtlas Flow Data";
+	display: block;
+	font-size: var(--font-larger);
+	color: var(--foreground-secondary-alt);
+	;
+	background-color: var(--background-secondary-alt);
+	padding: var(--size-4-3);
+	border-top: 2px solid var(--text-accent-hover);
+	border-bottom: 2px solid var(--text-accent-hover);
+	margin-bottom: var(--size-4-3);
 }
 
-.canvas-node:not(.is-editing) .canvas-node-container:has(.cai-input) {
-  position: relative;
-  border-left: 4px solid;
+
+.canvas-node:not(.is-editing) .canvas-node-container:has(.ca-input, .ca-prompt, .ca-context, .ca-system) {
+	position: relative;
+	padding-left: 50px;
 }
 
-.cai-input::before {
-  content: "Input";
-  position: absolute;
-  left: 0;
-  transform: translateX(-100%);
-  background-color: (0, 0, 255);
-  color: (255, 255, 255);
-  padding: 2px 8px;
-  font-size: 0.8em;
+.cloud-atlas-flow-canvas .mod-canvas-color-1:not(.is-editing) .canvas-node-container,
+.cloud-atlas-flow-canvas .mod-canvas-color-2:not(.is-editing) .canvas-node-container,
+.cloud-atlas-flow-canvas .mod-canvas-color-4:not(.is-editing) .canvas-node-container,
+.cloud-atlas-flow-canvas .mod-canvas-color-5:not(.is-editing) .canvas-node-container {
+	position: relative;
+	padding-left: 50px;
+}
+
+.canvas-node:not(.is-editing) .canvas-node-container:has(.ca-input, .ca-prompt, .ca-context, .ca-system)::before {
+	width: 50px !important;
+	background-color: rgba(var(--canvas-color), 0.7) !important;
+	position: absolute;
+	left: 0;
+	top: 0;
+	bottom: 0;
+	min-height: 100% !important;
+	padding: 0;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	writing-mode: vertical-rl;
+	transform: rotate(180deg);
+	font-size: 1.2em;
+}
+
+.cloud-atlas-flow-canvas .mod-canvas-color-1:not(.is-editing) .canvas-node-container::before,
+.cloud-atlas-flow-canvas .mod-canvas-color-2:not(.is-editing) .canvas-node-container::before,
+.cloud-atlas-flow-canvas .mod-canvas-color-4:not(.is-editing) .canvas-node-container::before,
+.cloud-atlas-flow-canvas .mod-canvas-color-5:not(.is-editing) .canvas-node-container::before {
+    width: 50px !important;
+	background-color: rgba(var(--canvas-color), 0.7) !important;
+	position: absolute;
+	left: 0;
+	top: 0;
+	bottom: 0;
+	min-height: 100% !important;
+	padding: 0;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	writing-mode: vertical-rl;
+	transform: rotate(180deg);
+	font-size: 1.2em;
+}
+
+.cloud-atlas-flow-canvas .mod-canvas-color-1:not(.is-editing) .canvas-node-container::before,
+.canvas-node:not(.is-editing) .canvas-node-container:has(.ca-input)::before {
+	content: "Input";
+}
+
+.cloud-atlas-flow-canvas .mod-canvas-color-2:not(.is-editing) .canvas-node-container::before,
+.canvas-node:not(.is-editing) .canvas-node-container:has(.ca-prompt)::before {
+	content: "User Prompt";
+}
+
+.cloud-atlas-flow-canvas .mod-canvas-color-5:not(.is-editing) .canvas-node-container::before,
+.canvas-node:not(.is-editing) .canvas-node-container:has(.ca-system)::before {
+	content: "System Instructions";
+}
+
+.cloud-atlas-flow-canvas .mod-canvas-color-4:not(.is-editing) .canvas-node-container::before,
+.canvas-node:not(.is-editing) .canvas-node-container:has(.ca-context)::before {
+	content: "Context";
 }

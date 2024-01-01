@@ -43,3 +43,18 @@ If your plugin does not need CSS, delete this file.
   margin-bottom: var(--size-4-3);
 }
 
+.canvas-node:not(.is-editing) .canvas-node-container:has(.cai-input) {
+  position: relative;
+  border-left: 4px solid;
+}
+
+.cai-input::before {
+  content: "Input";
+  position: absolute;
+  left: 0;
+  transform: translateX(-100%);
+  background-color: (0, 0, 255);
+  color: (255, 255, 255);
+  padding: 2px 8px;
+  font-size: 0.8em;
+}

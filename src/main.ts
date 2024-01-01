@@ -701,20 +701,6 @@ export default class CloudAtlasPlugin extends Plugin {
 		}
 	}
 
-	getLeafByPath(filePath: string): WorkspaceLeaf[] {
-		const allSpecificLeafs: WorkspaceLeaf[] = [];
-		this.app.workspace.iterateAllLeaves((leaf) => {
-			if (leaf.view instanceof FileView) {
-				const view = leaf.view as FileView;
-				if (view.file?.path === filePath) {
-					allSpecificLeafs.push(leaf);
-				}
-			}
-		});
-
-		return allSpecificLeafs;
-	}
-
 	private addNewCommand(plugin: CloudAtlasPlugin, flow: string): void {
 		console.debug("Adding command for flow: ", flow);
 		this.addCommand({

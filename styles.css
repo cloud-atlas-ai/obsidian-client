@@ -37,7 +37,6 @@ If your plugin does not need CSS, delete this file.
 	display: block;
 	font-size: var(--font-larger);
 	color: var(--foreground-secondary-alt);
-	;
 	background-color: var(--background-secondary-alt);
 	padding: var(--size-4-3);
 	border-top: 2px solid var(--text-accent-hover);

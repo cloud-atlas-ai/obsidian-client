@@ -256,9 +256,9 @@ export default class CloudAtlasPlugin extends Plugin {
 		if (fromSelection) {
 			editor.replaceSelection(
 				input +
-					"\n\n---\n\n" +
-					`\u{1F4C4}\u{2194}\u{1F916}` +
-					"\n\n---\n\n"
+				"\n\n---\n\n" +
+				`\u{1F4C4}\u{2194}\u{1F916}` +
+				"\n\n---\n\n"
 			);
 		} else {
 			editor.replaceSelection(
@@ -682,7 +682,7 @@ export default class CloudAtlasPlugin extends Plugin {
 				if (noteFile) {
 					if (noteFile.path.endsWith(".canvas")) {
 						if (!checking) {
-							this.canvasOps(noteFile).then(() => {});
+							this.canvasOps(noteFile).then(() => { });
 						}
 						return true;
 					}
@@ -692,6 +692,7 @@ export default class CloudAtlasPlugin extends Plugin {
 
 		this.addSettingTab(new CloudAtlasGlobalSettingsTab(this.app, this));
 	}
+
 	updateFlowCanvasClass(file: TFile | null) {
 		const leafType = this.app.workspace.getActiveViewOfType(ItemView)?.getViewType();
 		activeDocument.body.classList.remove('cloud-atlas-flow-canvas');
@@ -766,7 +767,7 @@ export default class CloudAtlasPlugin extends Plugin {
 		});
 	}
 
-	onunload() {}
+	onunload() { }
 
 	async loadSettings() {
 		this.settings = Object.assign(

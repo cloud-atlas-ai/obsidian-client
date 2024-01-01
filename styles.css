@@ -13,6 +13,8 @@ If your plugin does not need CSS, delete this file.
 	width: auto;
 }
 
+
+.cloud-atlas-flow-canvas .canvas-wrapper::before,
 .cloud-atlas-flow-file::before {
 	content: "CloudAtlas Flow";
 	display: block;
@@ -42,7 +44,6 @@ If your plugin does not need CSS, delete this file.
 	border-bottom: 2px solid var(--text-accent-hover);
 	margin-bottom: var(--size-4-3);
 }
-
 
 .canvas-node:not(.is-editing) .canvas-node-container:has(.ca-input, .ca-prompt, .ca-context, .ca-system) {
 	position: relative;

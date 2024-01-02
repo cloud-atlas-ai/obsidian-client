@@ -7,7 +7,6 @@ import {
 	Notice,
 	Plugin,
 	TFile,
-	WorkspaceLeaf,
 	normalizePath,
 } from "obsidian";
 import {
@@ -256,9 +255,9 @@ export default class CloudAtlasPlugin extends Plugin {
 		if (fromSelection) {
 			editor.replaceSelection(
 				input +
-				"\n\n---\n\n" +
-				`\u{1F4C4}\u{2194}\u{1F916}` +
-				"\n\n---\n\n"
+					"\n\n---\n\n" +
+					`\u{1F4C4}\u{2194}\u{1F916}` +
+					"\n\n---\n\n"
 			);
 		} else {
 			editor.replaceSelection(
@@ -618,7 +617,10 @@ export default class CloudAtlasPlugin extends Plugin {
 	}
 
 	async onload() {
+		console.debug("Entering onLoad");
+		
 		await this.loadSettings();
+		console.debug("Loaded settings");
 
 		try {
 			this.registerEditorExtension(this.editorExtension);
@@ -627,13 +629,16 @@ export default class CloudAtlasPlugin extends Plugin {
 				this.updateFlowCanvasClass(this.app.workspace.getActiveFile());
 			});
 
-			this.registerEvent(this.app.workspace.on("active-leaf-change", (leaf) => {
-				const view = leaf?.view instanceof FileView ? leaf.view : null;
-				const file = view ? view.file : null;
-				if (file?.extension === "canvas") {
-					this.updateFlowCanvasClass(file);
-				}
-			}));
+			this.registerEvent(
+				this.app.workspace.on("active-leaf-change", (leaf) => {
+					const view =
+						leaf?.view instanceof FileView ? leaf.view : null;
+					const file = view ? view.file : null;
+					if (file?.extension === "canvas") {
+						this.updateFlowCanvasClass(file);
+					}
+				})
+			);
 
 			await this.createFolder("CloudAtlas");
 
@@ -646,14 +651,20 @@ export default class CloudAtlasPlugin extends Plugin {
 		} catch (e) {
 			console.debug("Could not create folder, it likely already exists");
 		}
+		console.debug("Bootstraped CloudAtlas folder");
 
-		const cloudAtlasFlows = this.app.vault
-			.getFiles()
-			.filter(
-				(file) =>
-					file.path.startsWith("CloudAtlas/") &&
-					file.path.endsWith(".flow.md")
-			);
+		await sleep(100);
+		const vaultFiles = this.app.vault.getMarkdownFiles();
+
+		console.debug(`Found ${vaultFiles.length} vault files`);
+
+		const cloudAtlasFlows = vaultFiles.filter(
+			(file) =>
+				file.path.startsWith("CloudAtlas/") &&
+				file.path.endsWith(".flow.md")
+		);
+
+		console.debug(`Found ${cloudAtlasFlows.length} CloudAtlas flows`);
 
 		// Create commands for each flow
 		cloudAtlasFlows.forEach((flowFile) => {
@@ -682,7 +693,7 @@ export default class CloudAtlasPlugin extends Plugin {
 				if (noteFile) {
 					if (noteFile.path.endsWith(".canvas")) {
 						if (!checking) {
-							this.canvasOps(noteFile).then(() => { });
+							this.canvasOps(noteFile).then(() => {});
 						}
 						return true;
 					}
@@ -694,9 +705,16 @@ export default class CloudAtlasPlugin extends Plugin {
 	}
 
 	updateFlowCanvasClass(file: TFile | null) {
-		const leafType = this.app.workspace.getActiveViewOfType(ItemView)?.getViewType();
-		activeDocument.body.classList.remove('cloud-atlas-flow-canvas');
-		if (file && file.extension === "canvas" && leafType === "canvas" && file.name.endsWith(".flow.canvas")) {
+		const leafType = this.app.workspace
+			.getActiveViewOfType(ItemView)
+			?.getViewType();
+		activeDocument.body.classList.remove("cloud-atlas-flow-canvas");
+		if (
+			file &&
+			file.extension === "canvas" &&
+			leafType === "canvas" &&
+			file.name.endsWith(".flow.canvas")
+		) {
 			activeDocument.body.addClass("cloud-atlas-flow-canvas");
 		}
 	}
@@ -753,7 +771,7 @@ export default class CloudAtlasPlugin extends Plugin {
 		});
 	}
 
-	onunload() { }
+	onunload() {}
 
 	async loadSettings() {
 		this.settings = Object.assign(

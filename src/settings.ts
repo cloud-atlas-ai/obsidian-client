@@ -1,9 +1,10 @@
 import { App, PluginSettingTab, Setting } from "obsidian";
 import CloudAtlasPlugin from "./main";
-import { NamedEntity } from "./interfaces";
+import { LlmOptions, NamedEntity } from "./interfaces";
 
 export interface CloudAtlasPluginSettings {
 	apiKey: string;
+	advancedOptions: boolean;
 	useOpenAi: boolean;
 	previewMode: boolean;
 	entityRecognition: boolean;
@@ -12,6 +13,7 @@ export interface CloudAtlasPluginSettings {
 	canvasResolveLinks: boolean;
 	canvasResolveBacklinks: boolean;
 	developmentMode: boolean;
+	llmOptions: LlmOptions;
 }
 
 // TODO: If we only have one tab, we shouldn't have multiple tabs or this will get rejected when we submit it to the store.
@@ -57,9 +59,23 @@ export class CloudAtlasGlobalSettingsTab extends PluginSettingTab {
 			.addText((text) =>
 				text
 					.setPlaceholder("Enter API key")
-					.setValue(this.plugin.settings.apiKey)
+					.setValue(
+						this.plugin.settings.apiKey.substring(0, 8) + "..."
+					)
 					.onChange(async (value) => {
 						this.plugin.settings.apiKey = value;
+						await this.plugin.saveSettings();
+					})
+			);
+
+		new Setting(containerEl)
+			.setName("Preview mode")
+			.setDesc("Use unstable API with more features and less stability.")
+			.addToggle((toggle) =>
+				toggle
+					.setValue(this.plugin.settings.previewMode)
+					.onChange(async (value) => {
+						this.plugin.settings.previewMode = value;
 						await this.plugin.saveSettings();
 					})
 			);
@@ -79,87 +95,134 @@ export class CloudAtlasGlobalSettingsTab extends PluginSettingTab {
 			);
 
 		new Setting(containerEl)
-			.setName("Preview mode")
-			.setDesc("Use unstable API with more features and less stability.")
-			.addToggle((toggle) =>
-				toggle
-					.setValue(this.plugin.settings.previewMode)
-					.onChange(async (value) => {
-						this.plugin.settings.previewMode = value;
-						await this.plugin.saveSettings();
-					})
-			);
-
-		new Setting(containerEl)
-			.setName("Entity recognition")
+			.setName("Advanced Options")
 			.setDesc(
-				"Run named entity recognition on submitted notes, results in more relevant context entries, leading to more useful returns."
+				"Show advanced options. Once you toggle, this on reopen settings to see effects."
 			)
-			.addToggle((toggle) =>
+			.addToggle((toggle) => {
 				toggle
-					.setValue(this.plugin.settings.entityRecognition)
+					.setValue(this.plugin.settings.advancedOptions)
 					.onChange(async (value) => {
-						this.plugin.settings.entityRecognition = value;
+						this.plugin.settings.advancedOptions = value;
 						await this.plugin.saveSettings();
-					})
-			);
+					});
+			});
 
-		new Setting(containerEl)
-			.setName("Generate embeddings")
-			.setDesc(
-				"Generate embeddings for submitted notes, allows us to use retrieveal augmented generation."
-			)
-			.addToggle((toggle) =>
-				toggle
-					.setValue(this.plugin.settings.generateEmbeddings)
-					.onChange(async (value) => {
-						this.plugin.settings.generateEmbeddings = value;
-						await this.plugin.saveSettings();
-					})
-			);
+		if (this.plugin.settings.advancedOptions) {
+			containerEl.createEl("h2", { text: "LLM" });
 
-		containerEl.createEl("h2", { text: "Wikify" });
+			new Setting(containerEl)
+				.setName("LLM temperature")
+				.setDesc(
+					'Set default temperature for the LLM, the higher the temperature the more "creative" the LLM will be, default is usually around 0.8.'
+				)
+				.addText((text) =>
+					text
+						.setValue(
+							this.plugin.settings.llmOptions.temperature?.toString() ||
+								"0.8"
+						)
+						.onChange(async (value) => {
+							this.plugin.settings.llmOptions.temperature =
+								Number(value);
+							await this.plugin.saveSettings();
+						})
+				);
 
-		this.wikifySetting(containerEl, NamedEntity.Person);
-		this.wikifySetting(containerEl, NamedEntity.Location);
+			new Setting(containerEl)
+				.setName("LLM max response tokens")
+				.setDesc(
+					"Set maximum tokens returned in the response, defaults to 2000, and maximum is 4096."
+				)
+				.addText((text) =>
+					text
+						.setValue(
+							this.plugin.settings.llmOptions.max_tokens?.toString() ||
+								"2000"
+						)
+						.onChange(async (value) => {
+							const v =
+								Number(value) > 4096 ? 4096 : Number(value);
+							this.plugin.settings.llmOptions.max_tokens = v;
+							await this.plugin.saveSettings();
+						})
+				);
 
-		containerEl.createEl("h2", { text: "Canvas Flows" });
+			new Setting(containerEl)
+				.setName("Entity recognition")
+				.setDesc(
+					"Run named entity recognition on submitted notes, results in more relevant context entries, leading to more useful returns."
+				)
+				.addToggle((toggle) =>
+					toggle
+						.setValue(this.plugin.settings.entityRecognition)
+						.onChange(async (value) => {
+							this.plugin.settings.entityRecognition = value;
+							await this.plugin.saveSettings();
+						})
+				);
 
-		new Setting(containerEl)
-			.setName("Resolve links")
-			.setDesc("Adds resolved links as additional prompt context.")
-			.addToggle((toggle) =>
-				toggle
-					.setValue(this.plugin.settings.canvasResolveLinks)
-					.onChange(async (value) => {
-						this.plugin.settings.canvasResolveLinks = value;
-						await this.plugin.saveSettings();
-					})
-			);
+			new Setting(containerEl)
+				.setName("Generate embeddings")
+				.setDesc(
+					"Generate embeddings for submitted notes, allows us to use retrieveal augmented generation."
+				)
+				.addToggle((toggle) =>
+					toggle
+						.setValue(this.plugin.settings.generateEmbeddings)
+						.onChange(async (value) => {
+							this.plugin.settings.generateEmbeddings = value;
+							await this.plugin.saveSettings();
+						})
+				);
 
-		new Setting(containerEl)
-			.setName("Resolve backlinks")
-			.setDesc("Adds resolved backlinks as additional prompt context.")
-			.addToggle((toggle) =>
-				toggle
-					.setValue(this.plugin.settings.canvasResolveBacklinks)
-					.onChange(async (value) => {
-						this.plugin.settings.canvasResolveBacklinks = value;
-						await this.plugin.saveSettings();
-					})
-			);
+			containerEl.createEl("h2", { text: "Wikify" });
 
-		containerEl.createEl("h2", { text: "Development" });
-		new Setting(containerEl)
-			.setName("Development mode")
-			.setDesc("Redirects requests to http://localhost:8787")
-			.addToggle((toggle) =>
-				toggle
-					.setValue(this.plugin.settings.developmentMode)
-					.onChange(async (value) => {
-						this.plugin.settings.developmentMode = value;
-						await this.plugin.saveSettings();
-					})
-			);
+			this.wikifySetting(containerEl, NamedEntity.Person);
+			this.wikifySetting(containerEl, NamedEntity.Location);
+
+			containerEl.createEl("h2", { text: "Canvas Flows" });
+
+			new Setting(containerEl)
+				.setName("Resolve links")
+				.setDesc(
+					"Adds resolved links as additional prompt context, specific to canvas flows."
+				)
+				.addToggle((toggle) =>
+					toggle
+						.setValue(this.plugin.settings.canvasResolveLinks)
+						.onChange(async (value) => {
+							this.plugin.settings.canvasResolveLinks = value;
+							await this.plugin.saveSettings();
+						})
+				);
+
+			new Setting(containerEl)
+				.setName("Resolve backlinks")
+				.setDesc(
+					"Adds resolved backlinks as additional prompt context, specific to canvas flows."
+				)
+				.addToggle((toggle) =>
+					toggle
+						.setValue(this.plugin.settings.canvasResolveBacklinks)
+						.onChange(async (value) => {
+							this.plugin.settings.canvasResolveBacklinks = value;
+							await this.plugin.saveSettings();
+						})
+				);
+
+			containerEl.createEl("h2", { text: "Development" });
+			new Setting(containerEl)
+				.setName("Development mode")
+				.setDesc("Redirects requests to http://localhost:8787")
+				.addToggle((toggle) =>
+					toggle
+						.setValue(this.plugin.settings.developmentMode)
+						.onChange(async (value) => {
+							this.plugin.settings.developmentMode = value;
+							await this.plugin.saveSettings();
+						})
+				);
+		}
 	}
 }

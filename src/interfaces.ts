@@ -1,14 +1,20 @@
+export interface LlmOptions {
+	temperature?: number;
+	max_tokens?: number;
+}
+
 export interface Payload {
 	user: User;
-	system?: string;
-	options?: Options;
-	provider?: "azureai" | "openai";
+	system: string | null;
+	options: Options;
+	provider: "azureai" | "openai";
+	llmOptions: LlmOptions;
 }
 
 export interface Options {
-	generate_embeddings?: boolean;
-	entity_recognition?: boolean;
-	wikify?: string[];
+	generate_embeddings: boolean;
+	entity_recognition: boolean;
+	wikify: string[];
 }
 
 export interface AdditionalContext {
@@ -16,19 +22,20 @@ export interface AdditionalContext {
 }
 
 export interface User {
-	user_prompt?: string;
-	input: string | undefined;
+	user_prompt: string | null;
+	input: string | null;
 	additional_context?: AdditionalContext;
 }
 
 export interface FlowConfig {
-	userPrompt?: string;
-	system_instructions?: string;
-	mode?: string;
-	resolveBacklinks?: boolean;
-	resolveForwardLinks?: boolean;
+	userPrompt: string | null;
+	system_instructions: string | null;
+	mode: string | null;
+	resolveBacklinks: boolean;
+	resolveForwardLinks: boolean;
 	exclusionPatterns: string[];
 	frontMatterOffset: number;
+	llmOptions: LlmOptions;
 	// Add other flow properties as needed
 }
 
@@ -41,6 +48,6 @@ export enum NamedEntity {
 }
 
 export interface PayloadConfig {
-	payload: Payload | null;
-	config: FlowConfig | null;
+	payload: Payload;
+	config: FlowConfig;
 }

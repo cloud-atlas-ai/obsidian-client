@@ -6,6 +6,7 @@ export const ADDITIONAL_SYSTEM =
 
 export const DEFAULT_SETTINGS: CloudAtlasPluginSettings = {
 	apiKey: "",
+	advancedOptions: false,
 	previewMode: false,
 	entityRecognition: false,
 	generateEmbeddings: false,
@@ -14,6 +15,10 @@ export const DEFAULT_SETTINGS: CloudAtlasPluginSettings = {
 	canvasResolveBacklinks: false,
 	useOpenAi: false,
 	developmentMode: false,
+	llmOptions: {
+		temperature: 0.8,
+		max_tokens: 2000,
+	},
 };
 
 export const exampleFlowString = `---

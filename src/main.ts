@@ -32,6 +32,7 @@ import {
 	User,
 	FlowConfig,
 	PayloadConfig,
+	LlmOptions,
 } from "./interfaces";
 import { randomUUID } from "crypto";
 import {
@@ -79,7 +80,7 @@ export default class CloudAtlasPlugin extends Plugin {
 	settings: CloudAtlasPluginSettings;
 
 	collectInputsIntoPayload = async (
-		input: string | undefined,
+		input: string | null,
 		inputFlowFile: TFile,
 		flow: string
 	): Promise<Payload | null> => {
@@ -103,16 +104,39 @@ export default class CloudAtlasPlugin extends Plugin {
 
 	combineFlows = async (
 		paths: string[],
-		input: string | undefined
+		input: string | null
 	): Promise<Payload | null> => {
 		const uniquePaths = [...new Set(paths)];
-		const previous: PayloadConfig = {
+		const payloadConfig: PayloadConfig = {
 			payload: {
-				user: { input },
-				system: "",
+				user: { input, user_prompt: null },
+				system: null,
+				options: {
+					generate_embeddings: this.settings.generateEmbeddings,
+					entity_recognition: this.settings.entityRecognition,
+					wikify: this.settings.wikify,
+				},
+				provider: this.settings.useOpenAi ? "openai" : "azureai",
+				llmOptions: {
+					temperature: this.settings.llmOptions.temperature,
+					max_tokens: this.settings.llmOptions.max_tokens,
+				},
 			},
-			config: null,
+			config: {
+				userPrompt: null,
+				system_instructions: null,
+				mode: null,
+				resolveBacklinks: true,
+				resolveForwardLinks: true,
+				exclusionPatterns: [],
+				frontMatterOffset: 0,
+				llmOptions: {
+					temperature: this.settings.llmOptions.temperature,
+					max_tokens: this.settings.llmOptions.max_tokens,
+				},
+			},
 		};
+
 		const inputConfig = { selectionInput: input, is_prompt: true };
 		const last_index = uniquePaths.length - 1;
 		let index = 0;
@@ -122,23 +146,30 @@ export default class CloudAtlasPlugin extends Plugin {
 			}
 			const { payload, config } = await this.pathToPayload(
 				path,
-				previous.config,
+				payloadConfig,
 				inputConfig
 			);
 			if (payload) {
-				previous.payload = combinePayloads(previous.payload, payload);
-				previous.config = config;
+				payloadConfig.payload = combinePayloads(
+					payloadConfig.payload,
+					payload
+				);
+				payloadConfig.config = config;
 			}
 			index++;
 		}
-		return previous.payload;
+
+		return payloadConfig.payload;
 	};
 
 	pathToPayload = async (
 		filePath: string,
-		previousConfig?: FlowConfig | null,
-		inputConfig?: { selectionInput?: string; is_prompt: boolean }
+		payloadConfig: PayloadConfig,
+		inputConfig?: { selectionInput: string | null; is_prompt: boolean }
 	): Promise<PayloadConfig> => {
+		const previousConfig = payloadConfig.config;
+		const previousPayload = payloadConfig.payload;
+
 		try {
 			const flowConfig = await this.flowConfigFromPath(filePath);
 			const flowFile = this.app.vault.getAbstractFileByPath(
@@ -176,6 +207,8 @@ export default class CloudAtlasPlugin extends Plugin {
 					: flowContent;
 			}
 
+			input = input ? input : null;
+
 			const user: User = {
 				user_prompt,
 				input,
@@ -210,22 +243,44 @@ export default class CloudAtlasPlugin extends Plugin {
 				user,
 				system: flowConfig.system_instructions,
 				options: {
-					entity_recognition: false,
-					generate_embeddings: false,
+					entity_recognition:
+						previousPayload.options.entity_recognition,
+					generate_embeddings:
+						previousPayload.options.generate_embeddings,
+					wikify: previousPayload.options.wikify,
+				},
+				provider: previousPayload.provider,
+				llmOptions: {
+					temperature:
+						Number(flowConfig.llmOptions.temperature) ||
+						previousPayload.llmOptions.temperature,
+					max_tokens:
+						Number(flowConfig.llmOptions.max_tokens) ||
+						previousPayload.llmOptions.max_tokens,
 				},
 			};
 
 			return { payload: data, config: flowConfig };
 		} catch (e) {
 			console.error(e);
-			return { payload: null, config: null };
+			return { payload: previousPayload, config: previousConfig };
 		}
 	};
 
 	flowConfigFromPath = async (filePath: string): Promise<FlowConfig> => {
-		const metadata = await this.app.metadataCache.getFileCache(
-			(await this.app.vault.getAbstractFileByPath(filePath)) as TFile
+		const metadata = this.app.metadataCache.getFileCache(
+			this.app.vault.getAbstractFileByPath(filePath) as TFile
 		);
+
+		const llmOptions: LlmOptions = {};
+
+		if (metadata?.frontmatter?.temperature) {
+			llmOptions["temperature"] = metadata?.frontmatter?.temperature;
+		}
+
+		if (metadata?.frontmatter?.max_tokens) {
+			llmOptions["max_tokens"] = metadata?.frontmatter?.max_tokens;
+		}
 
 		return {
 			userPrompt: metadata?.frontmatter?.userPrompt,
@@ -235,6 +290,7 @@ export default class CloudAtlasPlugin extends Plugin {
 			resolveForwardLinks: metadata?.frontmatter?.resolveForwardLinks,
 			exclusionPatterns: metadata?.frontmatter?.exclusionPatterns || [],
 			frontMatterOffset: metadata?.frontmatterPosition?.end?.offset || 0,
+			llmOptions,
 		};
 	};
 
@@ -274,11 +330,6 @@ export default class CloudAtlasPlugin extends Plugin {
 		if (!payload) {
 			throw new Error("Could not construct payload!");
 		}
-
-		payload.options = payload.options || {};
-		payload.options.entity_recognition = this.settings.entityRecognition;
-		payload.options.generate_embeddings = this.settings.generateEmbeddings;
-		payload.options.wikify = this.settings.wikify;
 
 		const notice = new Notice(`Running ${flow} flow ...`, 0);
 		animateNotice(notice);
@@ -391,8 +442,6 @@ export default class CloudAtlasPlugin extends Plugin {
 			? "https://dev-api.cloud-atlas.ai/run"
 			: "https://api.cloud-atlas.ai/run";
 		url = this.settings.developmentMode ? "http://localhost:8787/run" : url;
-		payload.options = {};
-		payload.provider = this.settings.useOpenAi ? "openai" : "azureai";
 		const response = await fetch(url, {
 			headers: {
 				"x-api-key": this.settings.apiKey,
@@ -569,6 +618,16 @@ export default class CloudAtlasPlugin extends Plugin {
 			payload: {
 				user: user,
 				system: system_instructions.join("\n"),
+				options: {
+					entity_recognition: this.settings.entityRecognition,
+					generate_embeddings: this.settings.generateEmbeddings,
+					wikify: this.settings.wikify,
+				},
+				provider: this.settings.useOpenAi ? "openai" : "azureai",
+				llmOptions: {
+					temperature: this.settings.llmOptions.temperature,
+					max_tokens: this.settings.llmOptions.max_tokens,
+				},
 			},
 			canvas: canvasContent,
 		};
@@ -616,9 +675,29 @@ export default class CloudAtlasPlugin extends Plugin {
 		);
 	}
 
+	addFlowCommands = async () => {
+		const vaultFiles = this.app.vault.getMarkdownFiles();
+
+		console.debug(`Found ${vaultFiles.length} vault files`);
+
+		const cloudAtlasFlows = vaultFiles.filter(
+			(file) =>
+				file.path.startsWith("CloudAtlas/") &&
+				file.path.endsWith(".flow.md")
+		);
+
+		console.debug(`Found ${cloudAtlasFlows.length} CloudAtlas flows`);
+
+		// Create commands for each flow
+		cloudAtlasFlows.forEach((flowFile) => {
+			const flow = flowFile.path.split("/")[1].split(".flow.md")[0];
+			this.addNewCommand(this, flow);
+		});
+	};
+
 	async onload() {
 		console.debug("Entering onLoad");
-		
+
 		await this.loadSettings();
 		console.debug("Loaded settings");
 
@@ -654,23 +733,7 @@ export default class CloudAtlasPlugin extends Plugin {
 		console.debug("Bootstraped CloudAtlas folder");
 
 		await sleep(100);
-		const vaultFiles = this.app.vault.getMarkdownFiles();
-
-		console.debug(`Found ${vaultFiles.length} vault files`);
-
-		const cloudAtlasFlows = vaultFiles.filter(
-			(file) =>
-				file.path.startsWith("CloudAtlas/") &&
-				file.path.endsWith(".flow.md")
-		);
-
-		console.debug(`Found ${cloudAtlasFlows.length} CloudAtlas flows`);
-
-		// Create commands for each flow
-		cloudAtlasFlows.forEach((flowFile) => {
-			const flow = flowFile.path.split("/")[1].split(".flow.md")[0];
-			this.addNewCommand(this, flow);
-		});
+		this.addFlowCommands();
 
 		this.addCommand({
 			id: `create-flow`,
@@ -682,6 +745,15 @@ export default class CloudAtlasPlugin extends Plugin {
 					exampleFlowString
 				);
 				this.app.vault.create(`CloudAtlas/${name}.flowdata.md`, "");
+			},
+		});
+
+		this.addCommand({
+			id: "refresh",
+			name: "Refresh",
+			callback: async () => {
+				this.addFlowCommands();
+				new Notice("Refreshed Cloud Atlas flows");
 			},
 		});
 

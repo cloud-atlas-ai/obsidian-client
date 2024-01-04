@@ -35,12 +35,15 @@ export function combinePayloads(
 	return {
 		user,
 		system: override.system || base.system,
+		options: override.options || base.options,
+		provider: override.provider || base.provider,
+		llmOptions: override.llmOptions || base.llmOptions,
 	};
 }
 
 export function joinStrings(
-	first: string | undefined,
-	second: string | undefined
+	first: string | null | undefined,
+	second: string | null | undefined
 ): string {
 	return [first, second].filter((s) => s).join("\n");
 }

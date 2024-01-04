@@ -24,6 +24,7 @@ import {
 	isFileNode,
 } from "./canvas";
 
+import ShortUniqueId from "short-unique-id";
 import { ViewUpdate, EditorView, ViewPlugin } from "@codemirror/view";
 
 import {
@@ -33,6 +34,7 @@ import {
 	FlowConfig,
 	PayloadConfig,
 	LlmOptions,
+	ResponseRow,
 } from "./interfaces";
 import { randomUUID } from "crypto";
 import {
@@ -53,6 +55,8 @@ import {
 	ADDITIONAL_SYSTEM,
 	CANVAS_CONTENT,
 	DEFAULT_SETTINGS,
+	SUPABASE_ANON_KEY,
+	SUPABASE_URL,
 	exampleFlowString,
 } from "./constants";
 import { Extension } from "@codemirror/state";
@@ -121,6 +125,7 @@ export default class CloudAtlasPlugin extends Plugin {
 					temperature: this.settings.llmOptions.temperature,
 					max_tokens: this.settings.llmOptions.max_tokens,
 				},
+				requestId: new ShortUniqueId({ length: 10 }).rnd(),
 			},
 			config: {
 				userPrompt: null,
@@ -258,11 +263,13 @@ export default class CloudAtlasPlugin extends Plugin {
 						Number(flowConfig.llmOptions.max_tokens) ||
 						previousPayload.llmOptions.max_tokens,
 				},
+				requestId: previousPayload.requestId,
 			};
 
 			return { payload: data, config: flowConfig };
 		} catch (e) {
-			console.error(e);
+			// This is potentially fine, if there is no flowdata file
+			console.debug(e);
 			return { payload: previousPayload, config: previousConfig };
 		}
 	};
@@ -436,8 +443,28 @@ export default class CloudAtlasPlugin extends Plugin {
 		return additionalContext;
 	};
 
+	fetchResponse = async (requestId: string): Promise<ResponseRow[]> => {
+		const response = await fetch(
+			`https://${SUPABASE_URL}/rest/v1/atlas_responses?request_id=eq.${requestId}&select=response`,
+			{
+				headers: {
+					apikey: SUPABASE_ANON_KEY,
+					Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+					"Content-Type": "application/json",
+					"x-api-key": this.settings.apiKey,
+				},
+				method: "GET",
+			}
+		);
+
+		const respJson = await response.json();
+
+		return respJson;
+	};
+
 	apiFetch = async (payload: Payload): Promise<string> => {
-		console.log(payload);
+		payload.version = "V2";
+		console.debug(payload);
 		let url = this.settings.previewMode
 			? "https://dev-api.cloud-atlas.ai/run"
 			: "https://api.cloud-atlas.ai/run";
@@ -450,8 +477,31 @@ export default class CloudAtlasPlugin extends Plugin {
 			method: "POST",
 			body: JSON.stringify(payload),
 		});
-		const respJson = await response.json();
-		return respJson;
+
+		if (response.status != 200) {
+			console.error(response);
+			throw new Error("API request failed");
+		} else {
+			let respJsonS = await this.fetchResponse(payload.requestId);
+
+			let count = 0;
+			const interval = 5000;
+			const timeoutMins = this.settings.timeoutMins;
+			const timeout = timeoutMins * 60 * 1000;
+			const timeoutCnt = timeout / interval;
+
+			while (respJsonS.length == 0) {
+				count++;
+				console.debug(`Waiting for response... ${count}/${timeoutCnt}`);
+				await sleep(interval);
+				respJsonS = await this.fetchResponse(payload.requestId);
+				if (count > timeoutCnt) {
+					throw new Error("Timeoud out waiting for results");
+				}
+			}
+
+			return respJsonS[0].response;
+		}
 	};
 
 	getNodeContent = async (node: Node): Promise<string | undefined> => {
@@ -628,6 +678,7 @@ export default class CloudAtlasPlugin extends Plugin {
 					temperature: this.settings.llmOptions.temperature,
 					max_tokens: this.settings.llmOptions.max_tokens,
 				},
+				requestId: new ShortUniqueId({ length: 10 }).rnd(),
 			},
 			canvas: canvasContent,
 		};

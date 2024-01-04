@@ -38,6 +38,7 @@ export function combinePayloads(
 		options: override.options || base.options,
 		provider: override.provider || base.provider,
 		llmOptions: override.llmOptions || base.llmOptions,
+		requestId: override.requestId || base.requestId,
 	};
 }
 

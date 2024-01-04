@@ -1,6 +1,10 @@
 import { CanvasContent } from "./canvas";
 import { CloudAtlasPluginSettings } from "./settings";
 
+export const SUPABASE_ANON_KEY =
+	"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF1ZWd3aG55Y2Z2Y2Jsb3VjbWh2Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTY5NzgxOTMxMiwiZXhwIjoyMDEzMzk1MzEyfQ.5xu5cRQestl2Qi6dVvoHUwpvk20817NfUJTSjaEkdEE";
+export const SUPABASE_URL = "auegwhnycfvcbloucmhv.supabase.co";
+
 export const ADDITIONAL_SYSTEM =
 	"Use the content in 'input' as the main context, consider the 'additional_context' map for related information, and respond based on the instructions in 'user_prompt'. Assist the user by synthesizing information from these elements into coherent and useful insights or actions.";
 

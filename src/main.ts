@@ -55,6 +55,8 @@ import {
 	ADDITIONAL_SYSTEM,
 	CANVAS_CONTENT,
 	DEFAULT_SETTINGS,
+	SUPABASE_ANON_KEY,
+	SUPABASE_URL,
 	exampleFlowString,
 } from "./constants";
 import { Extension } from "@codemirror/state";
@@ -443,12 +445,11 @@ export default class CloudAtlasPlugin extends Plugin {
 
 	fetchResponse = async (requestId: string): Promise<ResponseRow[]> => {
 		const response = await fetch(
-			`https://auegwhnycfvcbloucmhv.supabase.co/rest/v1/atlas_responses?request_id=eq.${requestId}&select=response`,
+			`https://${SUPABASE_URL}/rest/v1/atlas_responses?request_id=eq.${requestId}&select=response`,
 			{
 				headers: {
-					apikey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF1ZWd3aG55Y2Z2Y2Jsb3VjbWh2Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTY5NzgxOTMxMiwiZXhwIjoyMDEzMzk1MzEyfQ.5xu5cRQestl2Qi6dVvoHUwpvk20817NfUJTSjaEkdEE",
-					Authorization:
-						"Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF1ZWd3aG55Y2Z2Y2Jsb3VjbWh2Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTY5NzgxOTMxMiwiZXhwIjoyMDEzMzk1MzEyfQ.5xu5cRQestl2Qi6dVvoHUwpvk20817NfUJTSjaEkdEE",
+					apikey: SUPABASE_ANON_KEY,
+					Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
 					"Content-Type": "application/json",
 					"x-api-key": this.settings.apiKey,
 				},

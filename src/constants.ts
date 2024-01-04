@@ -19,6 +19,7 @@ export const DEFAULT_SETTINGS: CloudAtlasPluginSettings = {
 		temperature: 0.8,
 		max_tokens: 2000,
 	},
+	timeoutMins: 5,
 };
 
 export const exampleFlowString = `---

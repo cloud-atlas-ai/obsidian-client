@@ -9,6 +9,11 @@ export interface Payload {
 	options: Options;
 	provider: "azureai" | "openai";
 	llmOptions: LlmOptions;
+	requestId: string;
+	// V1 is the legacy sync version
+	// V2 is the async version through Supabase
+	// If not set, defaults to V1 serverside
+	version?: "V1" | "V2";
 }
 
 export interface Options {
@@ -50,4 +55,8 @@ export enum NamedEntity {
 export interface PayloadConfig {
 	payload: Payload;
 	config: FlowConfig;
+}
+
+export interface ResponseRow {
+	response: string;
 }

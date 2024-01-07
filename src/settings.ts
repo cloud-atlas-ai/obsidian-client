@@ -14,6 +14,7 @@ export interface CloudAtlasPluginSettings {
 	canvasResolveBacklinks: boolean;
 	developmentMode: boolean;
 	llmOptions: LlmOptions;
+	timeoutMins: number;
 }
 
 // TODO: If we only have one tab, we shouldn't have multiple tabs or this will get rejected when we submit it to the store.
@@ -110,6 +111,20 @@ export class CloudAtlasGlobalSettingsTab extends PluginSettingTab {
 
 		if (this.plugin.settings.advancedOptions) {
 			containerEl.createEl("h2", { text: "LLM" });
+
+			new Setting(containerEl)
+				.setName("Timeout mintues")
+				.setDesc(
+					"How many minutes to wait for the results from server side processing. Obsidian will poll the server every 5 seconds, until results are returned or timeout is reached, defaults to 5 minutes."
+				)
+				.addText((text) =>
+					text
+						.setValue(this.plugin.settings.timeoutMins.toString())
+						.onChange(async (value) => {
+							this.plugin.settings.timeoutMins = Number(value);
+							await this.plugin.saveSettings();
+						})
+				);
 
 			new Setting(containerEl)
 				.setName("LLM temperature")

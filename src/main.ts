@@ -61,6 +61,7 @@ import {
 } from "./constants";
 import { Extension } from "@codemirror/state";
 import { randomName } from "./namegenerator";
+import { azureAiFetch, openAiFetch } from "./byollm";
 
 let noticeTimeout: NodeJS.Timeout;
 
@@ -463,6 +464,43 @@ export default class CloudAtlasPlugin extends Plugin {
 	};
 
 	apiFetch = async (payload: Payload): Promise<string> => {
+		if (
+			this.settings.openAiSettings.apiKey &&
+			this.settings.openAiSettings.active
+		) {
+			const response = await openAiFetch(
+				this.settings.openAiSettings.apiKey,
+				this.settings.openAiSettings.modelId,
+				payload,
+				this.settings.llmOptions
+			);
+			return response || "";
+		}
+
+		if (
+			this.settings.azureAiSettings.apiKey &&
+			this.settings.azureAiSettings.active
+		) {
+			const response = await azureAiFetch(
+				this.settings.azureAiSettings.apiKey,
+				this.settings.azureAiSettings.deploymentId,
+				this.settings.azureAiSettings.endpoint,
+				payload,
+				this.settings.llmOptions
+			);
+			return response || "";
+		}
+
+		if (this.settings.active && this.settings.apiKey) {
+			return await this.caApiFetch(payload);
+		}
+
+		new Notice("No LLM service selected, please chose one in settings");
+
+		return "";
+	};
+
+	caApiFetch = async (payload: Payload): Promise<string> => {
 		payload.version = "V2";
 		console.debug(payload);
 		let url = this.settings.previewMode

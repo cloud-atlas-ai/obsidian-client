@@ -534,7 +534,7 @@ export default class CloudAtlasPlugin extends Plugin {
 				await sleep(interval);
 				respJsonS = await this.fetchResponse(payload.requestId);
 				if (count > timeoutCnt) {
-					throw new Error("Timeoud out waiting for results");
+					throw new Error("Timeout out waiting for results");
 				}
 			}
 

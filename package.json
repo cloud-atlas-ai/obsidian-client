@@ -13,7 +13,6 @@
   "author": "",
   "license": "TBD",
   "devDependencies": {
-    "@azure/openai": "^1.0.0-beta.10",
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^20.9.4",
     "@types/word-extractor": "^1.0.5",
@@ -22,12 +21,13 @@
     "builtin-modules": "^3.3.0",
     "esbuild": "^0.19.7",
     "obsidian": "^1.4.11",
-    "openai": "^4.24.1",
-    "short-unique-id": "^5.0.3",
     "tslib": "^2.6.2",
     "typescript": "^5.3.2"
   },
   "dependencies": {
+    "@azure/openai": "^1.0.0-beta.10",
+    "openai": "^4.24.1",
+    "short-unique-id": "^5.0.3",
     "word-extractor": "^1.0.4"
   }
 }

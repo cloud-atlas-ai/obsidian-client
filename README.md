@@ -26,6 +26,7 @@ Each flow is like having a personal assistant within Obsidian, helping you manag
 - **Instructions and Prompt**: `<flow name>.flow.md` files from the `vault>/CloudAtlas` subdirectory. The value of the `system_instruction` property acts as the instructions or context for the API, and the content of the file provides a specific prompt or question.
 - **API Interaction**: The content of the active note, along with the system instructions, user prompt, and additional context, is sent to an external API. The API enriches and otherwise processes this and returns a response.
 - **Appending API Response**: The response from the API is then automatically appended to the end of the active note, providing insights, answers, or content based on the provided instructions and the serverside processing.
+
 ---
 
 ## Cloud Atlas Plugin Usage Guide
@@ -59,15 +60,12 @@ This  will walk you through creating, running, and customizing your personal flo
 ### Step 2: Running Your Flow
 
 1. **Open Any Note**: With your flow created, open any note in your vault where you want to run the flow.
-
 2. **Execute the Flow**: Use Obsidian's command palette (`Ctrl/Cmd + P`) and type `Run demo Flow`. Selecting this command will execute your flow on the current note.
-
 3. **View the Results**: Cloud Atlas processes the note and appends or replaces the content based on your flow settings. The response from Cloud Atlas will appear in your note.
 
 ### Step 3: Customizing Your Flow
 
 1. **Create a Customization File**: In the `CloudAtlas` directory, create a `demo.flowdata` file to customize the `demo` flow.
-
 2. **Add Custom Content and Settings**: Here's an example customization:
 
     ```markdown
@@ -89,13 +87,29 @@ That's it! You've now learned how to create, run, and customize your own flows i
 
 ## Manually installing the plugin
 
+### With [Obsidian BRAT](https://github.com/TfTHacker/obsidian42-brat)
+
+1. Install the BRAT plugin
+    1. Open `Settings` -> `Community Plugins`
+    2. Disable safe mode, if enabled
+    3. *Browse*, and search for "BRAT"
+    4. Install the latest version of **Obsidian42 - BRAT**
+2. Open BRAT settings (`Settings` -> `BRAT`)
+    1. Scroll to the `Beta Plugin List` section
+    2. `Add Beta Plugin`
+    3. Specify this repository: `cloud-atlas-ai/obsidian-client`
+3. Enable the `Cloud Atlas` plugin (`Settings` -> `Community Plugins`)
+4. Set the API key in the plugin settings. You can get an API key by signing up at the [Cloud Atlas website](https://www.cloud-atlas.ai/).
+
+### From GitHub
+
 1. If you don't already use plugins
      - [Enable](https://help.obsidian.md/Extending+Obsidian/Community+plugins#Install+a+community+plugin) community plugins.
      - Create a new folder in your Obsidian vault plugin folder (`mkdir <vault>/.obsidian/plugins/`).
 2. Download the latest release from the [releases](https://github.com/cloud-atlas-ai/obsidian-client/releases) page.
 3. Unzip it and copy the directory to your vault `<vault>/.obsidian/plugins/cloud-atlas`.
 4. Reload Obsidian.
-5. Enable the plugin.
+5. Enable the `Cloud Atlas` plugin.
 6. Set the API key in the plugin settings. You can get an API key by signing up at the [Cloud Atlas website](https://www.cloud-atlas.ai/).
 
 ## Development

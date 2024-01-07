@@ -1,0 +1,10 @@
+{
+  "id": "cloud-atlas",
+  "name": "Cloud Atlas",
+  "version": "0.8.0",
+  "minAppVersion": "1.5.3",
+  "description": "Interoperability between Obsidian and Cloud Atlas",
+  "author": "Cloud Atlas",
+  "authorUrl": "https://cloud-atlas.ai",
+  "isDesktopOnly": false
+}

@@ -1,9 +1,15 @@
 import { App, PluginSettingTab, Setting } from "obsidian";
 import CloudAtlasPlugin from "./main";
-import { LlmOptions, NamedEntity } from "./interfaces";
+import {
+	AzureAiSettings,
+	LlmOptions,
+	NamedEntity,
+	OpenAiSettings,
+} from "./interfaces";
 
 export interface CloudAtlasPluginSettings {
 	apiKey: string;
+	active: boolean;
 	advancedOptions: boolean;
 	useOpenAi: boolean;
 	previewMode: boolean;
@@ -15,6 +21,8 @@ export interface CloudAtlasPluginSettings {
 	developmentMode: boolean;
 	llmOptions: LlmOptions;
 	timeoutMins: number;
+	openAiSettings: OpenAiSettings;
+	azureAiSettings: AzureAiSettings;
 }
 
 // TODO: If we only have one tab, we shouldn't have multiple tabs or this will get rejected when we submit it to the store.
@@ -55,28 +63,18 @@ export class CloudAtlasGlobalSettingsTab extends PluginSettingTab {
 		containerEl.empty();
 
 		new Setting(containerEl)
-			.setName("API Key")
-			.setDesc("Cloud Atlas API key.")
-			.addText((text) =>
-				text
-					.setPlaceholder("Enter API key")
-					.setValue(
-						this.plugin.settings.apiKey.substring(0, 8) + "..."
-					)
-					.onChange(async (value) => {
-						this.plugin.settings.apiKey = value;
-						await this.plugin.saveSettings();
-					})
-			);
-
-		new Setting(containerEl)
-			.setName("Preview mode")
-			.setDesc("Use unstable API with more features and less stability.")
+			.setName("Use Cloud Atlas")
+			.setDesc("Use Cloud Atlas backend service.")
 			.addToggle((toggle) =>
 				toggle
-					.setValue(this.plugin.settings.previewMode)
+					.setValue(this.plugin.settings.active)
 					.onChange(async (value) => {
-						this.plugin.settings.previewMode = value;
+						this.plugin.settings.active = value;
+						if (value) {
+							this.plugin.settings.azureAiSettings.active = false;
+							this.plugin.settings.openAiSettings.active = false;
+						}
+						this.display();
 						await this.plugin.saveSettings();
 					})
 			);
@@ -84,47 +82,191 @@ export class CloudAtlasGlobalSettingsTab extends PluginSettingTab {
 		new Setting(containerEl)
 			.setName("Use OpenAi")
 			.setDesc(
-				"We use AzureAi by default, this will use OpenAi, models are identical, so there should not be a meaningful difference in results."
+				"Use the OpenAi configuration, this will deactivate AzureAi if it is active."
 			)
 			.addToggle((toggle) =>
 				toggle
-					.setValue(this.plugin.settings.useOpenAi)
+					.setValue(this.plugin.settings.openAiSettings.active)
 					.onChange(async (value) => {
-						this.plugin.settings.useOpenAi = value;
+						this.plugin.settings.openAiSettings.active = value;
+						if (value) {
+							this.plugin.settings.azureAiSettings.active = false;
+							this.plugin.settings.active = false;
+						}
+						this.display();
 						await this.plugin.saveSettings();
 					})
 			);
 
+		// new Setting(containerEl)
+		// 	.setName("Use AzureAi")
+		// 	.setDesc(
+		// 		"Use this AzureAi configuration, this will deactivate OpenAi if it is active."
+		// 	)
+		// 	.addToggle((toggle) =>
+		// 		toggle
+		// 			.setValue(this.plugin.settings.azureAiSettings.active)
+		// 			.onChange(async (value) => {
+		// 				this.plugin.settings.azureAiSettings.active = value;
+		// 				if (value) {
+		// 					this.plugin.settings.openAiSettings.active = false;
+		// 					this.plugin.settings.active = false;
+		// 				}
+		// 				this.display();
+		// 				await this.plugin.saveSettings();
+		// 			})
+		// 	);
+
+		if (this.plugin.settings.openAiSettings.active) {
+			containerEl.createEl("h2", { text: "OpenAi" });
+
+			new Setting(containerEl)
+				.setName("OpenAI API Key")
+				.setDesc(
+					"Provision an API key at https://platform.openai.com/api-keys."
+				)
+				.addText((text) =>
+					text
+						.setPlaceholder("Enter OpenAi API key")
+						.setValue(
+							this.plugin.settings.openAiSettings.apiKey.substring(
+								0,
+								8
+							) + "..."
+						)
+						.onChange(async (value) => {
+							this.plugin.settings.openAiSettings.apiKey = value;
+							await this.plugin.saveSettings();
+						})
+				);
+
+			new Setting(containerEl)
+				.setName("Model ID")
+				.setDesc("Open AI model ID, for example 'gpt-4-vision-preview'")
+				.addText((text) => {
+					text.setValue(
+						this.plugin.settings.openAiSettings.modelId
+					).onChange(async (value) => {
+						this.plugin.settings.openAiSettings.modelId = value;
+						await this.plugin.saveSettings();
+					});
+				});
+		}
+
+		if (this.plugin.settings.azureAiSettings.active) {
+			containerEl.createEl("h2", { text: "AzureAi" });
+
+			new Setting(containerEl)
+				.setName("AzureAi API Key")
+				.setDesc(
+					"Get it from the 'Keys & Endpoint' section, visible when viewing a resource on Azure Portal'"
+				)
+				.addText((text) =>
+					text
+						.setPlaceholder("Enter AzureAi API key")
+						.setValue(
+							this.plugin.settings.azureAiSettings.apiKey.substring(
+								0,
+								8
+							) + "..."
+						)
+						.onChange(async (value) => {
+							this.plugin.settings.azureAiSettings.apiKey = value;
+							await this.plugin.saveSettings();
+						})
+				);
+
+			new Setting(containerEl)
+				.setName("Deployment ID")
+				.setDesc(
+					"Azure AI deployment ID, can be found at https://oai.azure.com/, under 'Management -> Deployments'"
+				)
+				.addText((text) => {
+					text.setValue(
+						this.plugin.settings.azureAiSettings.deploymentId
+					).onChange(async (value) => {
+						this.plugin.settings.azureAiSettings.deploymentId =
+							value;
+						await this.plugin.saveSettings();
+					});
+				});
+
+			new Setting(containerEl)
+				.setName("Endpoint")
+				.setDesc(
+					"Azure AI endpoint, found under the 'Keys & Endpoint' when viewing a resource on Azure Portal"
+				)
+				.addText((text) => {
+					text.setValue(
+						this.plugin.settings.azureAiSettings.endpoint
+					).onChange(async (value) => {
+						this.plugin.settings.azureAiSettings.endpoint = value;
+						await this.plugin.saveSettings();
+					});
+				});
+		}
+
+		// Cloud Atlas Settigs
+		if (this.plugin.settings.active) {
+			containerEl.createEl("h2", { text: "Cloud Atlas" });
+
+			new Setting(containerEl)
+				.setName("Cloud Atlas API Key")
+				.setDesc("Use Cloud Atlas backend service")
+				.addText((text) =>
+					text
+						.setPlaceholder("Enter API key")
+						.setValue(
+							this.plugin.settings.apiKey.substring(0, 8) + "..."
+						)
+						.onChange(async (value) => {
+							this.plugin.settings.apiKey = value;
+							await this.plugin.saveSettings();
+						})
+				);
+
+			new Setting(containerEl)
+				.setName("Preview mode")
+				.setDesc(
+					"Use unstable API with more features and less stability."
+				)
+				.addToggle((toggle) =>
+					toggle
+						.setValue(this.plugin.settings.previewMode)
+						.onChange(async (value) => {
+							this.plugin.settings.previewMode = value;
+							await this.plugin.saveSettings();
+						})
+				);
+
+			new Setting(containerEl)
+				.setName("Use OpenAi")
+				.setDesc(
+					"We use AzureAi by default, this will use OpenAi, models are identical, so there should not be a meaningful difference in results."
+				)
+				.addToggle((toggle) =>
+					toggle
+						.setValue(this.plugin.settings.useOpenAi)
+						.onChange(async (value) => {
+							this.plugin.settings.useOpenAi = value;
+							await this.plugin.saveSettings();
+						})
+				);
+		}
 		new Setting(containerEl)
 			.setName("Advanced Options")
-			.setDesc(
-				"Show advanced options. Once you toggle, this on reopen settings to see effects."
-			)
+			.setDesc("Show advanced options.")
 			.addToggle((toggle) => {
 				toggle
 					.setValue(this.plugin.settings.advancedOptions)
 					.onChange(async (value) => {
 						this.plugin.settings.advancedOptions = value;
+						this.display();
 						await this.plugin.saveSettings();
 					});
 			});
-
 		if (this.plugin.settings.advancedOptions) {
 			containerEl.createEl("h2", { text: "LLM" });
-
-			new Setting(containerEl)
-				.setName("Timeout mintues")
-				.setDesc(
-					"How many minutes to wait for the results from server side processing. Obsidian will poll the server every 5 seconds, until results are returned or timeout is reached, defaults to 5 minutes."
-				)
-				.addText((text) =>
-					text
-						.setValue(this.plugin.settings.timeoutMins.toString())
-						.onChange(async (value) => {
-							this.plugin.settings.timeoutMins = Number(value);
-							await this.plugin.saveSettings();
-						})
-				);
 
 			new Setting(containerEl)
 				.setName("LLM temperature")
@@ -163,81 +305,103 @@ export class CloudAtlasGlobalSettingsTab extends PluginSettingTab {
 						})
 				);
 
-			new Setting(containerEl)
-				.setName("Entity recognition")
-				.setDesc(
-					"Run named entity recognition on submitted notes, results in more relevant context entries, leading to more useful returns."
-				)
-				.addToggle((toggle) =>
-					toggle
-						.setValue(this.plugin.settings.entityRecognition)
-						.onChange(async (value) => {
-							this.plugin.settings.entityRecognition = value;
-							await this.plugin.saveSettings();
-						})
-				);
+			if (this.plugin.settings.active) {
+				new Setting(containerEl)
+					.setName("Timeout minutes")
+					.setDesc(
+						"How many minutes to wait for the results from server side processing. Obsidian will poll the server every 5 seconds, until results are returned or timeout is reached, defaults to 5 minutes."
+					)
+					.addText((text) =>
+						text
+							.setValue(
+								this.plugin.settings.timeoutMins.toString()
+							)
+							.onChange(async (value) => {
+								this.plugin.settings.timeoutMins =
+									Number(value);
+								await this.plugin.saveSettings();
+							})
+					);
 
-			new Setting(containerEl)
-				.setName("Generate embeddings")
-				.setDesc(
-					"Generate embeddings for submitted notes, allows us to use retrieveal augmented generation."
-				)
-				.addToggle((toggle) =>
-					toggle
-						.setValue(this.plugin.settings.generateEmbeddings)
-						.onChange(async (value) => {
-							this.plugin.settings.generateEmbeddings = value;
-							await this.plugin.saveSettings();
-						})
-				);
+				new Setting(containerEl)
+					.setName("Entity recognition")
+					.setDesc(
+						"Run named entity recognition on submitted notes, results in more relevant context entries, leading to more useful returns."
+					)
+					.addToggle((toggle) =>
+						toggle
+							.setValue(this.plugin.settings.entityRecognition)
+							.onChange(async (value) => {
+								this.plugin.settings.entityRecognition = value;
+								await this.plugin.saveSettings();
+							})
+					);
 
-			containerEl.createEl("h2", { text: "Wikify" });
+				new Setting(containerEl)
+					.setName("Generate embeddings")
+					.setDesc(
+						"Generate embeddings for submitted notes, allows us to use retrieveal augmented generation."
+					)
+					.addToggle((toggle) =>
+						toggle
+							.setValue(this.plugin.settings.generateEmbeddings)
+							.onChange(async (value) => {
+								this.plugin.settings.generateEmbeddings = value;
+								await this.plugin.saveSettings();
+							})
+					);
 
-			this.wikifySetting(containerEl, NamedEntity.Person);
-			this.wikifySetting(containerEl, NamedEntity.Location);
+				containerEl.createEl("h2", { text: "Wikify" });
 
-			containerEl.createEl("h2", { text: "Canvas Flows" });
+				this.wikifySetting(containerEl, NamedEntity.Person);
+				this.wikifySetting(containerEl, NamedEntity.Location);
 
-			new Setting(containerEl)
-				.setName("Resolve links")
-				.setDesc(
-					"Adds resolved links as additional prompt context, specific to canvas flows."
-				)
-				.addToggle((toggle) =>
-					toggle
-						.setValue(this.plugin.settings.canvasResolveLinks)
-						.onChange(async (value) => {
-							this.plugin.settings.canvasResolveLinks = value;
-							await this.plugin.saveSettings();
-						})
-				);
+				containerEl.createEl("h2", { text: "Canvas Flows" });
 
-			new Setting(containerEl)
-				.setName("Resolve backlinks")
-				.setDesc(
-					"Adds resolved backlinks as additional prompt context, specific to canvas flows."
-				)
-				.addToggle((toggle) =>
-					toggle
-						.setValue(this.plugin.settings.canvasResolveBacklinks)
-						.onChange(async (value) => {
-							this.plugin.settings.canvasResolveBacklinks = value;
-							await this.plugin.saveSettings();
-						})
-				);
+				new Setting(containerEl)
+					.setName("Resolve links")
+					.setDesc(
+						"Adds resolved links as additional prompt context, specific to canvas flows."
+					)
+					.addToggle((toggle) =>
+						toggle
+							.setValue(this.plugin.settings.canvasResolveLinks)
+							.onChange(async (value) => {
+								this.plugin.settings.canvasResolveLinks = value;
+								await this.plugin.saveSettings();
+							})
+					);
 
-			containerEl.createEl("h2", { text: "Development" });
-			new Setting(containerEl)
-				.setName("Development mode")
-				.setDesc("Redirects requests to http://localhost:8787")
-				.addToggle((toggle) =>
-					toggle
-						.setValue(this.plugin.settings.developmentMode)
-						.onChange(async (value) => {
-							this.plugin.settings.developmentMode = value;
-							await this.plugin.saveSettings();
-						})
-				);
+				new Setting(containerEl)
+					.setName("Resolve backlinks")
+					.setDesc(
+						"Adds resolved backlinks as additional prompt context, specific to canvas flows."
+					)
+					.addToggle((toggle) =>
+						toggle
+							.setValue(
+								this.plugin.settings.canvasResolveBacklinks
+							)
+							.onChange(async (value) => {
+								this.plugin.settings.canvasResolveBacklinks =
+									value;
+								await this.plugin.saveSettings();
+							})
+					);
+
+				containerEl.createEl("h2", { text: "Development" });
+				new Setting(containerEl)
+					.setName("Development mode")
+					.setDesc("Redirects requests to http://localhost:8787")
+					.addToggle((toggle) =>
+						toggle
+							.setValue(this.plugin.settings.developmentMode)
+							.onChange(async (value) => {
+								this.plugin.settings.developmentMode = value;
+								await this.plugin.saveSettings();
+							})
+					);
+			}
 		}
 	}
 }

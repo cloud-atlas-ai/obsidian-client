@@ -80,9 +80,9 @@ export class CloudAtlasGlobalSettingsTab extends PluginSettingTab {
 			);
 
 		new Setting(containerEl)
-			.setName("Use OpenAi")
+			.setName("Use OpenAI")
 			.setDesc(
-				"Use the OpenAi configuration, this will deactivate AzureAi if it is active."
+				"Use the OpenAI configuration, this will deactivate AzureAI if it is active."
 			)
 			.addToggle((toggle) =>
 				toggle
@@ -118,7 +118,7 @@ export class CloudAtlasGlobalSettingsTab extends PluginSettingTab {
 		// 	);
 
 		if (this.plugin.settings.openAiSettings.active) {
-			containerEl.createEl("h2", { text: "OpenAi" });
+			containerEl.createEl("h2", { text: "OpenAI" });
 
 			new Setting(containerEl)
 				.setName("OpenAI API Key")
@@ -127,7 +127,7 @@ export class CloudAtlasGlobalSettingsTab extends PluginSettingTab {
 				)
 				.addText((text) =>
 					text
-						.setPlaceholder("Enter OpenAi API key")
+						.setPlaceholder("Enter OpenAI API key")
 						.setValue(
 							this.plugin.settings.openAiSettings.apiKey.substring(
 								0,
@@ -154,10 +154,10 @@ export class CloudAtlasGlobalSettingsTab extends PluginSettingTab {
 		}
 
 		if (this.plugin.settings.azureAiSettings.active) {
-			containerEl.createEl("h2", { text: "AzureAi" });
+			containerEl.createEl("h2", { text: "AzureAI" });
 
 			new Setting(containerEl)
-				.setName("AzureAi API Key")
+				.setName("AzureAI API Key")
 				.setDesc(
 					"Get it from the 'Keys & Endpoint' section, visible when viewing a resource on Azure Portal'"
 				)
@@ -240,9 +240,9 @@ export class CloudAtlasGlobalSettingsTab extends PluginSettingTab {
 				);
 
 			new Setting(containerEl)
-				.setName("Use OpenAi")
+				.setName("Use OpenAI")
 				.setDesc(
-					"We use AzureAi by default, this will use OpenAi, models are identical, so there should not be a meaningful difference in results."
+					"We use AzureAI by default, this will use OpenAI, models are identical, so there should not be a meaningful difference in results."
 				)
 				.addToggle((toggle) =>
 					toggle

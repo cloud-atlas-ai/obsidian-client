@@ -595,8 +595,12 @@ export default class CloudAtlasPlugin extends Plugin {
 		try {
 			const respJson = await this.apiFetch(data.payload);
 
-			const inputNodes = findInputNode(data.canvas.nodes);
-			const canvasContent = data.canvas;
+			const refreshedData = await this.runCanvasFlow(noteFile);
+			if (!refreshedData) {
+				return;
+			}
+			const inputNodes = findInputNode(refreshedData.canvas.nodes);
+			const canvasContent = refreshedData?.canvas;
 
 			const responseNode = textNode(
 				respJson,
@@ -604,7 +608,7 @@ export default class CloudAtlasPlugin extends Plugin {
 				inputNodes[0].y
 			);
 
-			canvasContent.edges.push({
+			canvasContent?.edges.push({
 				id: randomUUID(),
 				fromNode: inputNodes[0].id,
 				fromSide: "right",
@@ -612,7 +616,7 @@ export default class CloudAtlasPlugin extends Plugin {
 				toSide: "left",
 			});
 
-			canvasContent.nodes.push(responseNode);
+			canvasContent?.nodes.push(responseNode);
 			this.app.vault.modify(noteFile, JSON.stringify(canvasContent));
 			console.debug("response: ", respJson);
 		} catch (e) {

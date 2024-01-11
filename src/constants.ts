@@ -10,7 +10,6 @@ export const ADDITIONAL_SYSTEM =
 
 export const DEFAULT_SETTINGS: CloudAtlasPluginSettings = {
 	apiKey: "",
-	active: true,
 	advancedOptions: false,
 	previewMode: false,
 	entityRecognition: false,
@@ -28,14 +27,13 @@ export const DEFAULT_SETTINGS: CloudAtlasPluginSettings = {
 	openAiSettings: {
 		apiKey: "",
 		modelId: "",
-		active: false,
 	},
 	azureAiSettings: {
 		apiKey: "",
 		deploymentId: "",
 		endpoint: "",
-		active: false,
 	},
+    provider: "openai",
 };
 
 export const exampleFlowString = `---

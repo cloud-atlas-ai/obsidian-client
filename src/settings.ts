@@ -9,7 +9,6 @@ import {
 
 export interface CloudAtlasPluginSettings {
 	apiKey: string;
-	active: boolean;
 	advancedOptions: boolean;
 	useOpenAi: boolean;
 	previewMode: boolean;
@@ -23,6 +22,7 @@ export interface CloudAtlasPluginSettings {
 	timeoutMins: number;
 	openAiSettings: OpenAiSettings;
 	azureAiSettings: AzureAiSettings;
+	provider: string;
 }
 
 // TODO: If we only have one tab, we shouldn't have multiple tabs or this will get rejected when we submit it to the store.
@@ -63,61 +63,21 @@ export class CloudAtlasGlobalSettingsTab extends PluginSettingTab {
 		containerEl.empty();
 
 		new Setting(containerEl)
-			.setName("Use Cloud Atlas")
-			.setDesc("Use Cloud Atlas backend service.")
-			.addToggle((toggle) =>
-				toggle
-					.setValue(this.plugin.settings.active)
-					.onChange(async (value) => {
-						this.plugin.settings.active = value;
-						if (value) {
-							this.plugin.settings.azureAiSettings.active = false;
-							this.plugin.settings.openAiSettings.active = false;
-						}
-						this.display();
-						await this.plugin.saveSettings();
-					})
-			);
+			.setName("Provider")
+			.setDesc("Choose the LLM provider")
+			.addDropdown((dropDown) => {
+				dropDown.addOption("openai", "OpenAI");
+				// dropDown.addOption('azureai', 'AzureAI');
+				dropDown.addOption("cloudatlas", "Cloud Atlas");
+                dropDown.setValue(this.plugin.settings.provider);
+				dropDown.onChange(async (value) => {
+					this.plugin.settings.provider = value;
+					this.display();
+					await this.plugin.saveSettings();
+				});
+			});
 
-		new Setting(containerEl)
-			.setName("Use OpenAI")
-			.setDesc(
-				"Use the OpenAI configuration, this will deactivate AzureAI if it is active."
-			)
-			.addToggle((toggle) =>
-				toggle
-					.setValue(this.plugin.settings.openAiSettings.active)
-					.onChange(async (value) => {
-						this.plugin.settings.openAiSettings.active = value;
-						if (value) {
-							this.plugin.settings.azureAiSettings.active = false;
-							this.plugin.settings.active = false;
-						}
-						this.display();
-						await this.plugin.saveSettings();
-					})
-			);
-
-		// new Setting(containerEl)
-		// 	.setName("Use AzureAi")
-		// 	.setDesc(
-		// 		"Use this AzureAi configuration, this will deactivate OpenAi if it is active."
-		// 	)
-		// 	.addToggle((toggle) =>
-		// 		toggle
-		// 			.setValue(this.plugin.settings.azureAiSettings.active)
-		// 			.onChange(async (value) => {
-		// 				this.plugin.settings.azureAiSettings.active = value;
-		// 				if (value) {
-		// 					this.plugin.settings.openAiSettings.active = false;
-		// 					this.plugin.settings.active = false;
-		// 				}
-		// 				this.display();
-		// 				await this.plugin.saveSettings();
-		// 			})
-		// 	);
-
-		if (this.plugin.settings.openAiSettings.active) {
+		if (this.plugin.settings.provider === "openai") {
 			containerEl.createEl("h2", { text: "OpenAI" });
 
 			new Setting(containerEl)
@@ -153,7 +113,7 @@ export class CloudAtlasGlobalSettingsTab extends PluginSettingTab {
 				});
 		}
 
-		if (this.plugin.settings.azureAiSettings.active) {
+		if (this.plugin.settings.provider === "azureai") {
 			containerEl.createEl("h2", { text: "AzureAI" });
 
 			new Setting(containerEl)
@@ -207,7 +167,7 @@ export class CloudAtlasGlobalSettingsTab extends PluginSettingTab {
 		}
 
 		// Cloud Atlas Settigs
-		if (this.plugin.settings.active) {
+		if (this.plugin.settings.provider === "cloudatlas") {
 			containerEl.createEl("h2", { text: "Cloud Atlas" });
 
 			new Setting(containerEl)
@@ -305,7 +265,7 @@ export class CloudAtlasGlobalSettingsTab extends PluginSettingTab {
 						})
 				);
 
-			if (this.plugin.settings.active) {
+			if (this.plugin.settings.provider === "cloudatlas") {
 				new Setting(containerEl)
 					.setName("Timeout minutes")
 					.setDesc(

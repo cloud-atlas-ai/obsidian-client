@@ -64,12 +64,10 @@ export interface ResponseRow {
 export interface OpenAiSettings {
 	apiKey: string;
 	modelId: string;
-    active: boolean;
 }
 
 export interface AzureAiSettings {
 	apiKey: string;
 	deploymentId: string;
 	endpoint: string;
-    active: boolean;
 }

@@ -466,7 +466,7 @@ export default class CloudAtlasPlugin extends Plugin {
 	apiFetch = async (payload: Payload): Promise<string> => {
 		if (
 			this.settings.openAiSettings.apiKey &&
-			this.settings.openAiSettings.active
+			this.settings.provider === "openai"
 		) {
 			const response = await openAiFetch(
 				this.settings.openAiSettings.apiKey,
@@ -479,7 +479,7 @@ export default class CloudAtlasPlugin extends Plugin {
 
 		if (
 			this.settings.azureAiSettings.apiKey &&
-			this.settings.azureAiSettings.active
+			this.settings.provider === "azureai"
 		) {
 			const response = await azureAiFetch(
 				this.settings.azureAiSettings.apiKey,
@@ -491,7 +491,7 @@ export default class CloudAtlasPlugin extends Plugin {
 			return response || "";
 		}
 
-		if (this.settings.active && this.settings.apiKey) {
+		if (this.settings.provider === "cloudatlas" && this.settings.apiKey) {
 			return await this.caApiFetch(payload);
 		}
 

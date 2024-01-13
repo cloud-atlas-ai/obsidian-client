@@ -2,15 +2,37 @@
 
 # Obsidian Cloud Atlas Plugin
 
-This is a plugin for [Obsidian](https://obsidian.md) to execute Cloud Atlas flows.
+This plugin integrates Obsidian with Cloud Atlas, enriching your note-taking experience by automatically processing notes, providing contextual responses, and streamlining information gathering with the power of various computational models and external systems.
 
-## What is [Cloud Atlas](https://www.cloud-atlas.ai/)?
+## Cloud Atlas Features
 
-Cloud Atlas provides intelligent and contextual assistance. It's a blend of a locally installed plugins and a server component that work collaboratively to give you access to a true second brain. The plugin is open source but Cloud Atlas is a paid service.
+- **Canvas Flows**: Use the interactive canvas to set up and run flows with components like input, context, and user prompts.
+  - Name these as `<flow name>.flow.canvas`
+  - Execute them using the `Run Canvas Flow Command`.
 
-By tapping into knowledge sources and computational models, Cloud Atlas offers a unique way to interact with information. It connects with external systems like weather services, maps, the Wolfram Knowledge base, Wikipedia, IMDB, and computational models like Wolfram Alpha and OpenAI ChatGPT. This allows Cloud Atlas to provide rich, context-aware insights and responses based on your context.
+- **Markdown Notes Mode**: Run flows directly on Markdown files with support for context selection or using the current file as context.
+  - Define flows in `CloudAtlas/<flow name>.flow.md`
+  - Optionally, include additional data with `CloudAtlas/<flow name>.flowdata.md`
 
-The Obsidian plugin aspect of Cloud Atlas is open source, while the server component operates on a freemium model, ensuring accessibility and advanced features for all users.
+### LLM options
+
+You can use the plugin with Cloud Atlas as the Language Model (LLM) provider or bring your own OpenAI key.
+
+- No need for a separate ChatGPT account; choose between OpenAI ChatGPT-4 or AzureAI ChatGPT-4.
+- Cloud Atlas supports vision tasks and entity recognition to enhance notes with wikilinks automatically.
+- Server-side embeddings generation for adding relevant context to your requests.
+
+## Cloud Atlas Subscription
+
+Due to high demand, we are limiting signups for Cloud Atlas as an LLM provider. If you wish to sign up, please email us at `signmeup@cloud-atlas.ai` with a brief description of your intended use and a confirmation of your willingness to pay for the service if it proves valuable.
+
+## Using Your Own OpenAI Key
+
+You can choose to use your own OpenAI key with the plugin. However, be aware that this mode comes with the following limitations:
+
+- Entity recognition and automatic will not be available.
+- Vision tasks are unsupported.
+- Server-side embeddings to improve context relevance are not included.
 
 ## What is a Flow?
 
@@ -37,11 +59,11 @@ This  will walk you through creating, running, and customizing your personal flo
 
 ### Step 1: Creating a New Flow
 
-1. **Navigate to the `CloudAtlas` Directory**: Open your Obsidian vault and find the `CloudAtlas` subdirectory. This is where your custom flows will live.
+1. **Create a New Flow**: Use the command palette (`Ctrl/Cmd + P`) and type `Create New Flow`. This will create a new `.flow.md` file in the `CloudAtlas` directory.
 
-2. **Create a New Flow File**: In the `CloudAtlas` directory, create a new file for your flow. Name it something like `demo.flow`.
+2. **Name Your Flow**: Follow the naming convention `CloudAtlas/<flow name>.flow.md` for markdown notes mode.
 
-3. **Add Flow Content and Settings**: Edit your new flow file. Here's an example of what it might look like:
+3. **Setup Your Flow**: Populate your new flow file with the desired content, context, and instructions as needed.
 
     ```markdown
     ---
@@ -58,6 +80,8 @@ This  will walk you through creating, running, and customizing your personal flo
     - `system_instructions`: Instructions for Cloud Atlas on how to assist.
     - `resolveBacklinks` and `resolveForwardLinks`: Whether to include content from linked notes.
     - `exclusionPattern`: Patterns for notes to exclude, useful for omitting sensitive data.
+
+4. **Refresh Your Flows**: After creating or updating a flow, use the command palette and run `Refresh Flows`. This will scan for new or updated flows and add the necessary commands to execute them.
 
 ### Step 2: Running Your Flow
 
@@ -102,27 +126,3 @@ That's it! You've now learned how to create, run, and customize your own flows i
     3. Specify this repository: `cloud-atlas-ai/obsidian-client`
 3. Enable the `Cloud Atlas` plugin (`Settings` -> `Community Plugins`)
 4. Set the API key in the plugin settings. You can get an API key by signing up at the [Cloud Atlas website](https://www.cloud-atlas.ai/).
-
-### From GitHub
-
-1. If you don't already use plugins
-     - [Enable](https://help.obsidian.md/Extending+Obsidian/Community+plugins#Install+a+community+plugin) community plugins.
-     - Create a new folder in your Obsidian vault plugin folder (`mkdir <vault>/.obsidian/plugins/`).
-2. Download the latest release from the [releases](https://github.com/cloud-atlas-ai/obsidian-client/releases) page.
-3. Unzip it and copy the directory to your vault `<vault>/.obsidian/plugins/cloud-atlas`.
-4. Reload Obsidian.
-5. Enable the `Cloud Atlas` plugin.
-6. Set the API key in the plugin settings. You can get an API key by signing up at the [Cloud Atlas website](https://www.cloud-atlas.ai/).
-
-## Development
-
-1. To develop Obsidian plugins you need NodeJS and npm installed. Do that first.
-2. Checkout this codebase.
-3. `npm install`
-4. Make the changes you want...
-5. `npm run dev` will watch for changes and build the plugin to `dist/main.js`.
-6. Create a new folder in your Obsidian vault plugin folder (`mkdir <vault>/.obsidian/plugins/cloud-atlas/`).
-7. Copy `manifest.json` to your Obdisian vault plugin folder (`cp manifest.json <vault>/.obsidian/plugins/cloud-atlas/`).
-8. Copy `dist.main/js` (or `dist/main-debug.js` if you made a debug build) to your Obdisian vault plugin folder (`cp dist/main.js <vault>/.obsidian/plugins/cloud-atlas/main.js`).
-9. Enable Cloud Atlas in Obsidian.
-10. Reload the vault or use the [Hot Reload Plugin](https://github.com/pjeby/hot-reload).

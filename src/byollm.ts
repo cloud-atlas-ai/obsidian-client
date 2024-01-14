@@ -24,6 +24,18 @@ function payloadToMessages(payload: Payload): RequestMsg[] {
 		messages.push(user_prompt_msg);
 	}
 
+	if (payload.user?.additional_context) {
+		for (const [key, value] of Object.entries(
+			payload.user?.additional_context
+		)) {
+			const additional_context_msg: RequestMsg = {
+				role: "user",
+				content: `additional_context -${key}: ${value}\n`,
+			};
+			messages.push(additional_context_msg);
+		}
+	}
+
 	const input_msg: RequestMsg = {
 		role: "user",
 		content: payload.user?.input || "",
@@ -39,13 +51,17 @@ export async function azureAiFetch(
 	deploymentId: string,
 	endpoint: string,
 	payload: Payload,
-    llmOptions: LlmOptions
+	llmOptions: LlmOptions
 ): Promise<string | null | undefined> {
 	const client = new OpenAIClient(endpoint, new AzureKeyCredential(apiKey));
 
 	const messages = payloadToMessages(payload);
 
-	const response = await client.getChatCompletions(deploymentId, messages, llmOptions);
+	const response = await client.getChatCompletions(
+		deploymentId,
+		messages,
+		llmOptions
+	);
 
 	return response.choices[0].message?.content;
 }
@@ -54,7 +70,7 @@ export async function openAiFetch(
 	apiKey: string,
 	modelId: string,
 	payload: Payload,
-    llmOptions: LlmOptions
+	llmOptions: LlmOptions
 ): Promise<string | null> {
 	const client = new OpenAI({
 		apiKey: apiKey,
@@ -66,7 +82,7 @@ export async function openAiFetch(
 	const response = await client.chat.completions.create({
 		model: modelId,
 		messages: messages,
-        ...llmOptions,
+		...llmOptions,
 	});
 
 	return response.choices[0].message.content;

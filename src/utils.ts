@@ -1,6 +1,17 @@
 import { readFileSync } from "fs";
 import WordExtractor from "word-extractor";
 import { AdditionalContext, Payload, User } from "./interfaces";
+import { App, TAbstractFile, TFile } from "obsidian";
+
+// Utility function to safely get a TFile by path
+export  function getFileByPath(filePath: string, app: App): TFile {
+  const file: TAbstractFile | null = app.vault.getAbstractFileByPath(filePath);
+  if (file instanceof TFile) {
+    return file;
+  } else {
+    throw new Error(`The path ${filePath} does not refer to a valid file.`);
+  }
+}
 
 export function combinePayloads(
 	base: Payload | null,

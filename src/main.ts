@@ -4,7 +4,9 @@ import {
 	FileSystemAdapter,
 	FileView,
 	ItemView,
+	LinkCache,
 	MarkdownView,
+	MetadataCache,
 	Notice,
 	Plugin,
 	TFile,
@@ -48,6 +50,7 @@ import {
 	isWord,
 	joinStrings,
   getFileByPath,
+  getBacklinksForFile,
 } from "./utils";
 import {
 	CloudAtlasGlobalSettingsTab,
@@ -411,11 +414,9 @@ export default class CloudAtlasPlugin extends Plugin {
 		const additionalContext: AdditionalContext = {};
 		const file = getFileByPath(filePath, this.app);
 
-		const activeBacklinks =
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			await (this.app.metadataCache as any).getBacklinksForFile(file);
+		const activeBacklinks = getBacklinksForFile(file, this.app);
 		// Process backlinks and resolved links
-		const backlinkPromises = Array.from(activeBacklinks.keys()).map(
+		const backlinkPromises = Array.from((await activeBacklinks).keys()).map(
 			async (key: string) => {
 				const linkedNoteContent = await this.readAndFilterContent(
 					key,

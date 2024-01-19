@@ -1,7 +1,8 @@
 import { readFileSync } from "fs";
 import WordExtractor from "word-extractor";
 import { AdditionalContext, Payload, User } from "./interfaces";
-import { App, TAbstractFile, TFile } from "obsidian";
+import { App, LinkCache, MetadataCache, Notice, TAbstractFile, TFile } from "obsidian";
+import { CustomArrayDict } from "obsidian-typings";
 
 // Utility function to safely get a TFile by path
 export  function getFileByPath(filePath: string, app: App): TFile {
@@ -10,6 +11,20 @@ export  function getFileByPath(filePath: string, app: App): TFile {
     return file;
   } else {
     throw new Error(`The path ${filePath} does not refer to a valid file.`);
+  }
+}
+
+interface ExtendedMetadataCache extends MetadataCache {
+  getBacklinksForFile(file: TFile): CustomArrayDict<LinkCache>;
+}
+
+export async function getBacklinksForFile(file: TFile, app: App): Promise<CustomArrayDict<LinkCache>> {
+  const filePath = file.path;
+  try {
+    return await (app.metadataCache as ExtendedMetadataCache).getBacklinksForFile(file);
+  } catch (error) {
+    new Notice('Backlink resolution failed. Consider installing the Backlink Cache Plugin.');
+    return {} as CustomArrayDict<LinkCache>;
   }
 }
 

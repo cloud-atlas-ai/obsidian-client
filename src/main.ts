@@ -1,6 +1,7 @@
 import {
 	App,
 	Editor,
+	FileSystemAdapter,
 	FileView,
 	ItemView,
 	MarkdownView,
@@ -372,8 +373,17 @@ export default class CloudAtlasPlugin extends Plugin {
 		path: string,
 		excludePatterns: RegExp[]
 	): Promise<string | undefined> => {
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		const basePath = (this.app.vault.adapter as any).basePath;
+
+    let adapter = this.app.vault.adapter;
+    let basePath = null;
+    if (adapter instanceof FileSystemAdapter) {
+      basePath = adapter.getBasePath();
+    }
+
+    if (basePath == null) {
+      throw new Error("Could not get vault base path");
+    }
+
 		if (excludePatterns.some((pattern) => pattern.test(path))) {
 			return ""; // Skip reading if path matches any exclusion pattern
 		}

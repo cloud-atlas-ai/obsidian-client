@@ -46,6 +46,7 @@ import {
 	isOtherText,
 	isWord,
 	joinStrings,
+  getFileByPath,
 } from "./utils";
 import {
 	CloudAtlasGlobalSettingsTab,
@@ -178,9 +179,7 @@ export default class CloudAtlasPlugin extends Plugin {
 
 		try {
 			const flowConfig = await this.flowConfigFromPath(filePath);
-			const flowFile = this.app.vault.getAbstractFileByPath(
-				filePath
-			) as TFile;
+			const flowFile = getFileByPath(filePath, this.app);
 
 			// Inherit booleans unless specifically defined.
 			if (previousConfig) {
@@ -277,7 +276,7 @@ export default class CloudAtlasPlugin extends Plugin {
 
 	flowConfigFromPath = async (filePath: string): Promise<FlowConfig> => {
 		const metadata = this.app.metadataCache.getFileCache(
-			this.app.vault.getAbstractFileByPath(filePath) as TFile
+			getFileByPath(filePath, this.app)
 		);
 
 		const llmOptions: LlmOptions = {};
@@ -364,7 +363,7 @@ export default class CloudAtlasPlugin extends Plugin {
 
 	readNote = async (filePath: string): Promise<string> => {
 		const content = await this.app.vault.read(
-			this.app.vault.getAbstractFileByPath(filePath) as TFile
+			getFileByPath(filePath, this.app)
 		);
 		return content;
 	};
@@ -400,7 +399,7 @@ export default class CloudAtlasPlugin extends Plugin {
 		excludePatterns: RegExp[]
 	): Promise<AdditionalContext> => {
 		const additionalContext: AdditionalContext = {};
-		const file = this.app.vault.getAbstractFileByPath(filePath) as TFile;
+		const file = getFileByPath(filePath, this.app);
 
 		const activeBacklinks =
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -562,7 +561,7 @@ export default class CloudAtlasPlugin extends Plugin {
 
 	createFlow = async (flow: string) => {
 		await this.create(
-			`CloudAtlas/${flow}.canvas`,
+			`CloudAtlas/${flow}.flow.canvas`,
 			JSON.stringify(CANVAS_CONTENT)
 		);
 	};
@@ -916,14 +915,14 @@ export default class CloudAtlasPlugin extends Plugin {
 
 				const canvasContent = payloadToGraph(payload);
 
-				const canvasFilePath = `CloudAtlas/${flow}.canvas`;
-				const canvasFile = await this.app.vault.getAbstractFileByPath(
-					canvasFilePath
+				const canvasFilePath = `CloudAtlas/${flow}.flow.canvas`;
+				const canvasFile = await getFileByPath(
+					canvasFilePath, this.app
 				);
 
 				if (!canvasFile) {
 					this.app.vault.create(
-						`CloudAtlas/${flow}.canvas`,
+						`CloudAtlas/${flow}.flow.canvas`,
 						JSON.stringify(canvasContent)
 					);
 				} else {

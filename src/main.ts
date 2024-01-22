@@ -471,8 +471,7 @@ export default class CloudAtlasPlugin extends Plugin {
 	};
 
 	apiFetch = async (payload: Payload): Promise<string> => {
-		console.log(payload);
-		return;
+		// console.log(payload);
 		if (
 			this.settings.openAiSettings.apiKey &&
 			this.settings.provider === "openai"
@@ -604,62 +603,62 @@ export default class CloudAtlasPlugin extends Plugin {
 		console.log(batch);
 		const payloads = [];
 		if (batch.length == 1) {
-			
 			const batchIndex = batch[0];
-			const contents = await this.app.vault.read(
-				getFileByPath(batchIndex, this.app)
-			);
-			const items = contents.split("\n");
-			console.log("Found items: ", items.length);
-			console.log(contents);
+			const items = await this.resolveLinksForPath(batchIndex, []);
+			console.log(items);
 			// loop over items
-			for (let i = 0; i < items.length; i++) {
-				const name = items[i].trim();
-				const contents = await this.app.vault.read(
-					getFileByPath(name, this.app)
-				);
+			for (const [key, value] of Object.entries(items)) {
 				const payload = JSON.parse(JSON.stringify(data.payload));
+
+				payload.user.additional_context[key] = value;
+				payload.requestId = new ShortUniqueId({ length: 10 }).rnd();
 				delete payload.user.additional_context[batchIndex];
-				payload.user.additional_context[name] = contents;
 				payloads.push(payload);
 			}
 		}
-		console.log(payloads)
+		console.log(payloads);
+
+		if (payloads.length == 0) {
+			payloads.push(data.payload);
+		}
 
 		const notice = new Notice(`Running Canvas flow ...`, 0);
 		animateNotice(notice);
 
-		try {
-			const respJson = await this.apiFetch(data.payload);
+		// Itearate over payloads
+		for (const payload of payloads) {
+			try {
+				const respJson = await this.apiFetch(payload);
 
-			const refreshedData = await this.runCanvasFlow(noteFile);
-			if (!refreshedData) {
-				return;
+				const refreshedData = await this.runCanvasFlow(noteFile);
+				if (!refreshedData) {
+					return;
+				}
+				const inputNodes = findInputNode(refreshedData.canvas.nodes);
+				const canvasContent = refreshedData?.canvas;
+
+				const responseNode = textNode(
+					respJson,
+					inputNodes[0].x + inputNodes[0].width + 100,
+					inputNodes[0].y
+				);
+
+				canvasContent?.edges.push({
+					id: randomUUID(),
+					fromNode: inputNodes[0].id,
+					fromSide: "right",
+					toNode: responseNode.id,
+					toSide: "left",
+				});
+
+				canvasContent?.nodes.push(responseNode);
+				this.app.vault.modify(noteFile, JSON.stringify(canvasContent));
+				console.debug("response: ", respJson);
+			} catch (e) {
+				console.error(e);
+				notice.hide();
+				new Notice("Something went wrong. Check the console.");
 			}
-			const inputNodes = findInputNode(refreshedData.canvas.nodes);
-			const canvasContent = refreshedData?.canvas;
-
-			const responseNode = textNode(
-				respJson,
-				inputNodes[0].x + inputNodes[0].width + 100,
-				inputNodes[0].y
-			);
-
-			canvasContent?.edges.push({
-				id: randomUUID(),
-				fromNode: inputNodes[0].id,
-				fromSide: "right",
-				toNode: responseNode.id,
-				toSide: "left",
-			});
-
-			canvasContent?.nodes.push(responseNode);
-			this.app.vault.modify(noteFile, JSON.stringify(canvasContent));
-			console.debug("response: ", respJson);
-		} catch (e) {
-			console.error(e);
-			notice.hide();
-			new Notice("Something went wrong. Check the console.");
 		}
 		notice.hide();
 		clearTimeout(noticeTimeout);

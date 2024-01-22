@@ -4,9 +4,7 @@ import {
 	FileSystemAdapter,
 	FileView,
 	ItemView,
-	LinkCache,
 	MarkdownView,
-	MetadataCache,
 	Notice,
 	Plugin,
 	TFile,
@@ -49,8 +47,8 @@ import {
 	isOtherText,
 	isWord,
 	joinStrings,
-  getFileByPath,
-  getBacklinksForFile,
+	getFileByPath,
+	getBacklinksForFile,
 } from "./utils";
 import {
 	CloudAtlasGlobalSettingsTab,
@@ -376,16 +374,15 @@ export default class CloudAtlasPlugin extends Plugin {
 		path: string,
 		excludePatterns: RegExp[]
 	): Promise<string | undefined> => {
+		const adapter = this.app.vault.adapter;
+		let basePath = null;
+		if (adapter instanceof FileSystemAdapter) {
+			basePath = adapter.getBasePath();
+		}
 
-    let adapter = this.app.vault.adapter;
-    let basePath = null;
-    if (adapter instanceof FileSystemAdapter) {
-      basePath = adapter.getBasePath();
-    }
-
-    if (basePath == null) {
-      throw new Error("Could not get vault base path");
-    }
+		if (basePath == null) {
+			throw new Error("Could not get vault base path");
+		}
 
 		if (excludePatterns.some((pattern) => pattern.test(path))) {
 			return ""; // Skip reading if path matches any exclusion pattern
@@ -474,6 +471,8 @@ export default class CloudAtlasPlugin extends Plugin {
 	};
 
 	apiFetch = async (payload: Payload): Promise<string> => {
+		console.log(payload);
+		return;
 		if (
 			this.settings.openAiSettings.apiKey &&
 			this.settings.provider === "openai"
@@ -598,6 +597,34 @@ export default class CloudAtlasPlugin extends Plugin {
 		if (!data) {
 			return;
 		}
+
+		const batch = Object.keys(
+			data.payload.user.additional_context as object
+		).filter((key) => key.endsWith(".index.md"));
+		console.log(batch);
+		const payloads = [];
+		if (batch.length == 1) {
+			
+			const batchIndex = batch[0];
+			const contents = await this.app.vault.read(
+				getFileByPath(batchIndex, this.app)
+			);
+			const items = contents.split("\n");
+			console.log("Found items: ", items.length);
+			console.log(contents);
+			// loop over items
+			for (let i = 0; i < items.length; i++) {
+				const name = items[i].trim();
+				const contents = await this.app.vault.read(
+					getFileByPath(name, this.app)
+				);
+				const payload = JSON.parse(JSON.stringify(data.payload));
+				delete payload.user.additional_context[batchIndex];
+				payload.user.additional_context[name] = contents;
+				payloads.push(payload);
+			}
+		}
+		console.log(payloads)
 
 		const notice = new Notice(`Running Canvas flow ...`, 0);
 		animateNotice(notice);
@@ -928,7 +955,8 @@ export default class CloudAtlasPlugin extends Plugin {
 
 				const canvasFilePath = `CloudAtlas/${flow}.flow.canvas`;
 				const canvasFile = await getFileByPath(
-					canvasFilePath, this.app
+					canvasFilePath,
+					this.app
 				);
 
 				if (!canvasFile) {

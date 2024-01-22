@@ -19,7 +19,6 @@ interface ExtendedMetadataCache extends MetadataCache {
 }
 
 export async function getBacklinksForFile(file: TFile, app: App): Promise<CustomArrayDict<LinkCache>> {
-  const filePath = file.path;
   try {
     return await (app.metadataCache as ExtendedMetadataCache).getBacklinksForFile(file);
   } catch (error) {

@@ -470,6 +470,35 @@ export default class CloudAtlasPlugin extends Plugin {
 		return respJson;
 	};
 
+	executeCanvasFlow = async (payload: Payload, noteFile: TFile) => {
+		const respJson = await this.apiFetch(payload);
+
+		const refreshedData = await this.runCanvasFlow(noteFile);
+		if (!refreshedData) {
+			return;
+		}
+		const inputNodes = findInputNode(refreshedData.canvas.nodes);
+		const canvasContent = refreshedData?.canvas;
+
+		const responseNode = textNode(
+			respJson,
+			inputNodes[0].x + inputNodes[0].width + 100,
+			inputNodes[0].y
+		);
+
+		canvasContent?.edges.push({
+			id: randomUUID(),
+			fromNode: inputNodes[0].id,
+			fromSide: "right",
+			toNode: responseNode.id,
+			toSide: "left",
+		});
+
+		canvasContent?.nodes.push(responseNode);
+		this.app.vault.modify(noteFile, JSON.stringify(canvasContent));
+		console.debug("response: ", respJson);
+	};
+
 	apiFetch = async (payload: Payload): Promise<string> => {
 		// console.log(payload);
 		if (
@@ -601,7 +630,7 @@ export default class CloudAtlasPlugin extends Plugin {
 			data.payload.user.additional_context as object
 		).filter((key) => key.endsWith(".index.md"));
 		console.log(batch);
-		const payloads = [];
+		const payloadsQueue = [];
 		if (batch.length == 1) {
 			const batchIndex = batch[0];
 			const items = await this.resolveLinksForPath(batchIndex, []);
@@ -613,53 +642,31 @@ export default class CloudAtlasPlugin extends Plugin {
 				payload.user.additional_context[key] = value;
 				payload.requestId = new ShortUniqueId({ length: 10 }).rnd();
 				delete payload.user.additional_context[batchIndex];
-				payloads.push(payload);
+				payloadsQueue.push(payload);
 			}
 		}
-		console.log(payloads);
 
-		if (payloads.length == 0) {
-			payloads.push(data.payload);
+		if (payloadsQueue.length == 0) {
+			payloadsQueue.push(data.payload);
 		}
 
 		const notice = new Notice(`Running Canvas flow ...`, 0);
 		animateNotice(notice);
 
-		// Itearate over payloads
-		for (const payload of payloads) {
-			try {
-				const respJson = await this.apiFetch(payload);
-
-				const refreshedData = await this.runCanvasFlow(noteFile);
-				if (!refreshedData) {
-					return;
+		while (payloadsQueue.length) {
+			const payloadsChunk = payloadsQueue.splice(0, 3);
+			const inFlight = payloadsChunk.map((payload) => {
+				try {
+					this.executeCanvasFlow(payload, noteFile);
+				} catch (e) {
+					console.error(e);
+					notice.hide();
+					new Notice("Something went wrong. Check the console.");
 				}
-				const inputNodes = findInputNode(refreshedData.canvas.nodes);
-				const canvasContent = refreshedData?.canvas;
-
-				const responseNode = textNode(
-					respJson,
-					inputNodes[0].x + inputNodes[0].width + 100,
-					inputNodes[0].y
-				);
-
-				canvasContent?.edges.push({
-					id: randomUUID(),
-					fromNode: inputNodes[0].id,
-					fromSide: "right",
-					toNode: responseNode.id,
-					toSide: "left",
-				});
-
-				canvasContent?.nodes.push(responseNode);
-				this.app.vault.modify(noteFile, JSON.stringify(canvasContent));
-				console.debug("response: ", respJson);
-			} catch (e) {
-				console.error(e);
-				notice.hide();
-				new Notice("Something went wrong. Check the console.");
-			}
+			});
+			await Promise.all(inFlight);
 		}
+
 		notice.hide();
 		clearTimeout(noticeTimeout);
 	};

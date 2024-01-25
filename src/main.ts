@@ -4,9 +4,7 @@ import {
 	FileSystemAdapter,
 	FileView,
 	ItemView,
-	LinkCache,
 	MarkdownView,
-	MetadataCache,
 	Notice,
 	Plugin,
 	TFile,
@@ -49,8 +47,8 @@ import {
 	isOtherText,
 	isWord,
 	joinStrings,
-  getFileByPath,
-  getBacklinksForFile,
+	getFileByPath,
+	getBacklinksForFile,
 } from "./utils";
 import {
 	CloudAtlasGlobalSettingsTab,
@@ -376,16 +374,15 @@ export default class CloudAtlasPlugin extends Plugin {
 		path: string,
 		excludePatterns: RegExp[]
 	): Promise<string | undefined> => {
+		const adapter = this.app.vault.adapter;
+		let basePath = null;
+		if (adapter instanceof FileSystemAdapter) {
+			basePath = adapter.getBasePath();
+		}
 
-    let adapter = this.app.vault.adapter;
-    let basePath = null;
-    if (adapter instanceof FileSystemAdapter) {
-      basePath = adapter.getBasePath();
-    }
-
-    if (basePath == null) {
-      throw new Error("Could not get vault base path");
-    }
+		if (basePath == null) {
+			throw new Error("Could not get vault base path");
+		}
 
 		if (excludePatterns.some((pattern) => pattern.test(path))) {
 			return ""; // Skip reading if path matches any exclusion pattern
@@ -652,16 +649,11 @@ export default class CloudAtlasPlugin extends Plugin {
 			return;
 		}
 		const inputNode = inputNodes[0];
-		const inputNodeEdges = findNodeEdges(inputNode, canvasContent.edges);
-		const connectedNodeIds = inputNodeEdges.map((edge) => edge.fromNode);
-		const connectedNodes = canvasContent.nodes.filter((node) => {
-			return connectedNodeIds.includes(node.id);
-		});
 		const input = await this.getNodeContent(inputNode);
 		const user_prompt = [];
 		for (const node of filterNodesByType(
 			NodeType.UserPrompt,
-			connectedNodes
+			canvasContent.nodes
 		)) {
 			const content = await this.getNodeContent(node);
 			if (content) {
@@ -669,7 +661,10 @@ export default class CloudAtlasPlugin extends Plugin {
 			}
 		}
 		const system_instructions = [];
-		for (const node of filterNodesByType(NodeType.System, connectedNodes)) {
+		for (const node of filterNodesByType(
+			NodeType.System,
+			canvasContent.nodes
+		)) {
 			const content = await this.getNodeContent(node);
 			if (content) {
 				system_instructions.push(content);
@@ -679,7 +674,7 @@ export default class CloudAtlasPlugin extends Plugin {
 		const additional_context: AdditionalContext = {};
 		const promises = filterNodesByType(
 			NodeType.Context,
-			connectedNodes
+			canvasContent.nodes
 		).map(async (node) => {
 			const content = await this.getNodeContent(node);
 			if (content) {
@@ -928,7 +923,8 @@ export default class CloudAtlasPlugin extends Plugin {
 
 				const canvasFilePath = `CloudAtlas/${flow}.flow.canvas`;
 				const canvasFile = await getFileByPath(
-					canvasFilePath, this.app
+					canvasFilePath,
+					this.app
 				);
 
 				if (!canvasFile) {

@@ -685,16 +685,11 @@ export default class CloudAtlasPlugin extends Plugin {
 			return;
 		}
 		const inputNode = inputNodes[0];
-		const inputNodeEdges = findNodeEdges(inputNode, canvasContent.edges);
-		const connectedNodeIds = inputNodeEdges.map((edge) => edge.fromNode);
-		const connectedNodes = canvasContent.nodes.filter((node) => {
-			return connectedNodeIds.includes(node.id);
-		});
 		const input = await this.getNodeContent(inputNode);
 		const user_prompt = [];
 		for (const node of filterNodesByType(
 			NodeType.UserPrompt,
-			connectedNodes
+			canvasContent.nodes
 		)) {
 			const content = await this.getNodeContent(node);
 			if (content) {
@@ -702,7 +697,10 @@ export default class CloudAtlasPlugin extends Plugin {
 			}
 		}
 		const system_instructions = [];
-		for (const node of filterNodesByType(NodeType.System, connectedNodes)) {
+		for (const node of filterNodesByType(
+			NodeType.System,
+			canvasContent.nodes
+		)) {
 			const content = await this.getNodeContent(node);
 			if (content) {
 				system_instructions.push(content);
@@ -712,7 +710,7 @@ export default class CloudAtlasPlugin extends Plugin {
 		const additional_context: AdditionalContext = {};
 		const promises = filterNodesByType(
 			NodeType.Context,
-			connectedNodes
+			canvasContent.nodes
 		).map(async (node) => {
 			const content = await this.getNodeContent(node);
 			if (content) {

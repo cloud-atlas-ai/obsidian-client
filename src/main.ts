@@ -4,9 +4,7 @@ import {
 	FileSystemAdapter,
 	FileView,
 	ItemView,
-	LinkCache,
 	MarkdownView,
-	MetadataCache,
 	Notice,
 	Plugin,
 	TFile,
@@ -49,8 +47,8 @@ import {
 	isOtherText,
 	isWord,
 	joinStrings,
-  getFileByPath,
-  getBacklinksForFile,
+	getFileByPath,
+	getBacklinksForFile,
 } from "./utils";
 import {
 	CloudAtlasGlobalSettingsTab,
@@ -376,16 +374,15 @@ export default class CloudAtlasPlugin extends Plugin {
 		path: string,
 		excludePatterns: RegExp[]
 	): Promise<string | undefined> => {
+		const adapter = this.app.vault.adapter;
+		let basePath = null;
+		if (adapter instanceof FileSystemAdapter) {
+			basePath = adapter.getBasePath();
+		}
 
-    let adapter = this.app.vault.adapter;
-    let basePath = null;
-    if (adapter instanceof FileSystemAdapter) {
-      basePath = adapter.getBasePath();
-    }
-
-    if (basePath == null) {
-      throw new Error("Could not get vault base path");
-    }
+		if (basePath == null) {
+			throw new Error("Could not get vault base path");
+		}
 
 		if (excludePatterns.some((pattern) => pattern.test(path))) {
 			return ""; // Skip reading if path matches any exclusion pattern
@@ -473,7 +470,37 @@ export default class CloudAtlasPlugin extends Plugin {
 		return respJson;
 	};
 
+	executeCanvasFlow = async (payload: Payload, noteFile: TFile) => {
+		const respJson = await this.apiFetch(payload);
+
+		const refreshedData = await this.runCanvasFlow(noteFile);
+		if (!refreshedData) {
+			return;
+		}
+		const inputNodes = findInputNode(refreshedData.canvas.nodes);
+		const canvasContent = refreshedData?.canvas;
+
+		const responseNode = textNode(
+			respJson,
+			inputNodes[0].x + inputNodes[0].width + 100,
+			inputNodes[0].y
+		);
+
+		canvasContent?.edges.push({
+			id: randomUUID(),
+			fromNode: inputNodes[0].id,
+			fromSide: "right",
+			toNode: responseNode.id,
+			toSide: "left",
+		});
+
+		canvasContent?.nodes.push(responseNode);
+		this.app.vault.modify(noteFile, JSON.stringify(canvasContent));
+		console.debug("response: ", respJson);
+	};
+
 	apiFetch = async (payload: Payload): Promise<string> => {
+		// console.log(payload);
 		if (
 			this.settings.openAiSettings.apiKey &&
 			this.settings.provider === "openai"
@@ -599,41 +626,47 @@ export default class CloudAtlasPlugin extends Plugin {
 			return;
 		}
 
+		const batch = Object.keys(
+			data.payload.user.additional_context as object
+		).filter((key) => key.endsWith(".index.md"));
+		console.log(batch);
+		const payloadsQueue = [];
+		if (batch.length == 1) {
+			const batchIndex = batch[0];
+			const items = await this.resolveLinksForPath(batchIndex, []);
+			console.log(items);
+			// loop over items
+			for (const [key, value] of Object.entries(items)) {
+				const payload = JSON.parse(JSON.stringify(data.payload));
+
+				payload.user.additional_context[key] = value;
+				payload.requestId = new ShortUniqueId({ length: 10 }).rnd();
+				delete payload.user.additional_context[batchIndex];
+				payloadsQueue.push(payload);
+			}
+		}
+
+		if (payloadsQueue.length == 0) {
+			payloadsQueue.push(data.payload);
+		}
+
 		const notice = new Notice(`Running Canvas flow ...`, 0);
 		animateNotice(notice);
 
-		try {
-			const respJson = await this.apiFetch(data.payload);
-
-			const refreshedData = await this.runCanvasFlow(noteFile);
-			if (!refreshedData) {
-				return;
-			}
-			const inputNodes = findInputNode(refreshedData.canvas.nodes);
-			const canvasContent = refreshedData?.canvas;
-
-			const responseNode = textNode(
-				respJson,
-				inputNodes[0].x + inputNodes[0].width + 100,
-				inputNodes[0].y
-			);
-
-			canvasContent?.edges.push({
-				id: randomUUID(),
-				fromNode: inputNodes[0].id,
-				fromSide: "right",
-				toNode: responseNode.id,
-				toSide: "left",
+		while (payloadsQueue.length) {
+			const payloadsChunk = payloadsQueue.splice(0, 3);
+			const inFlight = payloadsChunk.map((payload) => {
+				try {
+					this.executeCanvasFlow(payload, noteFile);
+				} catch (e) {
+					console.error(e);
+					notice.hide();
+					new Notice("Something went wrong. Check the console.");
+				}
 			});
-
-			canvasContent?.nodes.push(responseNode);
-			this.app.vault.modify(noteFile, JSON.stringify(canvasContent));
-			console.debug("response: ", respJson);
-		} catch (e) {
-			console.error(e);
-			notice.hide();
-			new Notice("Something went wrong. Check the console.");
+			await Promise.all(inFlight);
 		}
+
 		notice.hide();
 		clearTimeout(noticeTimeout);
 	};
@@ -928,7 +961,8 @@ export default class CloudAtlasPlugin extends Plugin {
 
 				const canvasFilePath = `CloudAtlas/${flow}.flow.canvas`;
 				const canvasFile = await getFileByPath(
-					canvasFilePath, this.app
+					canvasFilePath,
+					this.app
 				);
 
 				if (!canvasFile) {

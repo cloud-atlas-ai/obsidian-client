@@ -4,9 +4,7 @@ import {
 	FileSystemAdapter,
 	FileView,
 	ItemView,
-	LinkCache,
 	MarkdownView,
-	MetadataCache,
 	Notice,
 	Plugin,
 	TFile,
@@ -49,8 +47,8 @@ import {
 	isOtherText,
 	isWord,
 	joinStrings,
-  getFileByPath,
-  getBacklinksForFile,
+	getFileByPath,
+	getBacklinksForFile,
 } from "./utils";
 import {
 	CloudAtlasGlobalSettingsTab,
@@ -376,16 +374,15 @@ export default class CloudAtlasPlugin extends Plugin {
 		path: string,
 		excludePatterns: RegExp[]
 	): Promise<string | undefined> => {
+		const adapter = this.app.vault.adapter;
+		let basePath = null;
+		if (adapter instanceof FileSystemAdapter) {
+			basePath = adapter.getBasePath();
+		}
 
-    let adapter = this.app.vault.adapter;
-    let basePath = null;
-    if (adapter instanceof FileSystemAdapter) {
-      basePath = adapter.getBasePath();
-    }
-
-    if (basePath == null) {
-      throw new Error("Could not get vault base path");
-    }
+		if (basePath == null) {
+			throw new Error("Could not get vault base path");
+		}
 
 		if (excludePatterns.some((pattern) => pattern.test(path))) {
 			return ""; // Skip reading if path matches any exclusion pattern
@@ -440,13 +437,24 @@ export default class CloudAtlasPlugin extends Plugin {
 			filePath
 		];
 		const resolvedLinkPromises = Object.keys(activeResolvedLinks).map(
-			async (property) => {
+			async (path) => {
 				const linkedNoteContent = await this.readAndFilterContent(
-					property,
+					path,
 					excludePatterns
 				);
 				if (linkedNoteContent) {
-					additionalContext[property] = linkedNoteContent;
+					additionalContext[path] = linkedNoteContent;
+				}
+				const metadata = this.app.metadataCache.getFileCache(
+					getFileByPath(path, this.app)
+				);
+				if (metadata?.frontmatter?.recurseLinks) {
+					console.debug("Recursing links for: ", path);
+					const resolvedLinks = await this.resolveLinksForPath(
+						path,
+						excludePatterns
+					);
+					Object.assign(additionalContext, resolvedLinks);
 				}
 			}
 		);
@@ -688,6 +696,22 @@ export default class CloudAtlasPlugin extends Plugin {
 					: node.id;
 				additional_context[key] = content;
 			}
+			if (isFileNode(node)) {
+				const metadata = this.app.metadataCache.getFileCache(
+					getFileByPath((node as FileNode).file, this.app)
+				);
+				if (metadata?.frontmatter?.recurseLinks) {
+					console.debug(
+						"Recursing links for: ",
+						(node as FileNode).file
+					);
+					const resolvedLinks = await this.resolveLinksForPath(
+						(node as FileNode).file,
+						[]
+					);
+					Object.assign(additional_context, resolvedLinks);
+				}
+			}
 		});
 		await Promise.all(promises);
 
@@ -928,7 +952,8 @@ export default class CloudAtlasPlugin extends Plugin {
 
 				const canvasFilePath = `CloudAtlas/${flow}.flow.canvas`;
 				const canvasFile = await getFileByPath(
-					canvasFilePath, this.app
+					canvasFilePath,
+					this.app
 				);
 
 				if (!canvasFile) {

@@ -437,13 +437,24 @@ export default class CloudAtlasPlugin extends Plugin {
 			filePath
 		];
 		const resolvedLinkPromises = Object.keys(activeResolvedLinks).map(
-			async (property) => {
+			async (path) => {
 				const linkedNoteContent = await this.readAndFilterContent(
-					property,
+					path,
 					excludePatterns
 				);
 				if (linkedNoteContent) {
-					additionalContext[property] = linkedNoteContent;
+					additionalContext[path] = linkedNoteContent;
+				}
+				const metadata = this.app.metadataCache.getFileCache(
+					getFileByPath(path, this.app)
+				);
+				if (metadata?.frontmatter?.recurseLinks) {
+					console.debug("Recursing links for: ", path);
+					const resolvedLinks = await this.resolveLinksForPath(
+						path,
+						excludePatterns
+					);
+					Object.assign(additionalContext, resolvedLinks);
 				}
 			}
 		);
@@ -718,6 +729,22 @@ export default class CloudAtlasPlugin extends Plugin {
 					? (node as FileNode).file
 					: node.id;
 				additional_context[key] = content;
+			}
+			if (isFileNode(node)) {
+				const metadata = this.app.metadataCache.getFileCache(
+					getFileByPath((node as FileNode).file, this.app)
+				);
+				if (metadata?.frontmatter?.recurseLinks) {
+					console.debug(
+						"Recursing links for: ",
+						(node as FileNode).file
+					);
+					const resolvedLinks = await this.resolveLinksForPath(
+						(node as FileNode).file,
+						[]
+					);
+					Object.assign(additional_context, resolvedLinks);
+				}
 			}
 		});
 		await Promise.all(promises);

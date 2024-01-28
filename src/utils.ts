@@ -1,30 +1,45 @@
 import { readFileSync } from "fs";
 import WordExtractor from "word-extractor";
 import { AdditionalContext, Payload, User } from "./interfaces";
-import { App, LinkCache, MetadataCache, Notice, TAbstractFile, TFile } from "obsidian";
+import {
+	App,
+	LinkCache,
+	MetadataCache,
+	Notice,
+	TAbstractFile,
+	TFile,
+} from "obsidian";
 import { CustomArrayDict } from "obsidian-typings";
 
 // Utility function to safely get a TFile by path
-export  function getFileByPath(filePath: string, app: App): TFile {
-  const file: TAbstractFile | null = app.vault.getAbstractFileByPath(filePath);
-  if (file instanceof TFile) {
-    return file;
-  } else {
-    throw new Error(`The path ${filePath} does not refer to a valid file.`);
-  }
+export function getFileByPath(filePath: string, app: App): TFile {
+	const file: TAbstractFile | null =
+		app.vault.getAbstractFileByPath(filePath);
+	if (file instanceof TFile) {
+		return file;
+	} else {
+		throw new Error(`The path ${filePath} does not refer to a valid file.`);
+	}
 }
 
 interface ExtendedMetadataCache extends MetadataCache {
-  getBacklinksForFile(file: TFile): CustomArrayDict<LinkCache>;
+	getBacklinksForFile(file: TFile): CustomArrayDict<LinkCache>;
 }
 
-export async function getBacklinksForFile(file: TFile, app: App): Promise<CustomArrayDict<LinkCache>> {
-  try {
-    return await (app.metadataCache as ExtendedMetadataCache).getBacklinksForFile(file);
-  } catch (error) {
-    new Notice('Backlink resolution failed. Consider installing the Backlink Cache Plugin.');
-    return {} as CustomArrayDict<LinkCache>;
-  }
+export async function getBacklinksForFile(
+	file: TFile,
+	app: App
+): Promise<CustomArrayDict<LinkCache>> {
+	try {
+		return await (
+			app.metadataCache as ExtendedMetadataCache
+		).getBacklinksForFile(file);
+	} catch (error) {
+		new Notice(
+			"Backlink resolution failed. Consider installing the Backlink Cache Plugin."
+		);
+		return {} as CustomArrayDict<LinkCache>;
+	}
 }
 
 export function combinePayloads(
@@ -74,7 +89,10 @@ export function joinStrings(
 	return [first, second].filter((s) => s).join("\n");
 }
 
-export async function getImageContent(basePath: string, path: string) {
+export async function getImageContent(
+	basePath: string,
+	path: string
+): Promise<string> {
 	const contents = readFileSync(`${basePath}/${path}`);
 	const buffedInput = Buffer.from(contents).toString("base64");
 
@@ -99,6 +117,14 @@ export function isImage(path: string): boolean {
 	);
 }
 
+export function isFlow(path: string): boolean {
+	return path.endsWith(".flowrun.md");
+}
+
+export function isCanvasFlow(path: string): boolean {
+	return path.endsWith(".flow.canvas");
+}
+
 export function isWord(path: string): boolean {
 	return path.endsWith(".docx") || path.endsWith(".doc");
 }
@@ -114,21 +140,18 @@ export function isOtherText(path: string): boolean {
 export async function getWordContents(
 	basePath: string,
 	path: string
-): Promise<string | undefined> {
+): Promise<string | null> {
 	const extractor = new WordExtractor();
 	const extracted = await extractor.extract(`${basePath}/${path}`);
 	return extracted.getBody();
 }
 
-export function getFileContents(
-	basePath: string,
-	path: string
-): string | undefined {
+export function getFileContents(basePath: string, path: string): string | null {
 	const contents = readFileSync(`${basePath}/${path}`);
 	try {
 		return new TextDecoder("utf8", { fatal: true }).decode(contents);
 	} catch (e) {
 		console.debug(e);
-		return;
+		return null;
 	}
 }

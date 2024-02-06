@@ -9,6 +9,7 @@ import {
 	Plugin,
 	TFile,
 	normalizePath,
+	requestUrl,
 } from "obsidian";
 import {
 	CanvasContent,
@@ -480,18 +481,16 @@ export default class CloudAtlasPlugin extends Plugin {
 	};
 
 	fetchResponse = async (requestId: string): Promise<ResponseRow[]> => {
-		const response = await fetch(
-			`https://${SUPABASE_URL}/rest/v1/atlas_responses?request_id=eq.${requestId}&select=response`,
-			{
-				headers: {
-					apikey: SUPABASE_ANON_KEY,
-					Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-					"Content-Type": "application/json",
-					"x-api-key": this.settings.apiKey,
-				},
-				method: "GET",
-			}
-		);
+		const response = await requestUrl({
+			url: `https://${SUPABASE_URL}/rest/v1/atlas_responses?request_id=eq.${requestId}&select=response`,
+			headers: {
+				apikey: SUPABASE_ANON_KEY,
+				Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+				"Content-Type": "application/json",
+				"x-api-key": this.settings.apiKey,
+			},
+			method: "GET",
+		});
 
 		const respJson = await response.json();
 
@@ -575,7 +574,8 @@ export default class CloudAtlasPlugin extends Plugin {
 			? "https://dev-api.cloud-atlas.ai/run"
 			: "https://api.cloud-atlas.ai/run";
 		url = this.settings.developmentMode ? "http://localhost:8787/run" : url;
-		const response = await fetch(url, {
+		const response = await requestUrl({
+			url,
 			headers: {
 				"x-api-key": this.settings.apiKey,
 				"Content-Type": "application/json",

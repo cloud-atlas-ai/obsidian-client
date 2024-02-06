@@ -14,7 +14,7 @@
   "license": "TBD",
   "devDependencies": {
     "@types/js-yaml": "^4.0.9",
-    "@types/node": "^20.11.5",
+    "@types/node": "^20.11.16",
     "@types/word-extractor": "^1.0.5",
     "@typescript-eslint/eslint-plugin": "^6.19.1",
     "@typescript-eslint/parser": "^6.19.1",

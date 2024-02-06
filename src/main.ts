@@ -67,7 +67,7 @@ import { Extension } from "@codemirror/state";
 import { randomName } from "./namegenerator";
 import { azureAiFetch, openAiFetch } from "./byollm";
 
-let noticeTimeout: NodeJS.Timeout;
+let noticeTimeout: number;
 
 const animateNotice = (notice: Notice) => {
 	let message = notice.noticeEl.innerText;
@@ -82,7 +82,7 @@ const animateNotice = (notice: Notice) => {
 		message = message.replace(" ...", "    ");
 	}
 	notice.setMessage(message);
-	noticeTimeout = setTimeout(() => animateNotice(notice), 500);
+	noticeTimeout = window.setTimeout(() => animateNotice(notice), 500);
 };
 
 export default class CloudAtlasPlugin extends Plugin {

@@ -9,6 +9,7 @@ import {
 	Plugin,
 	TFile,
 	normalizePath,
+	requestUrl,
 } from "obsidian";
 import {
 	CanvasContent,
@@ -39,8 +40,6 @@ import {
 import { randomUUID } from "crypto";
 import {
 	combinePayloads,
-	getFileContents,
-	getImageContent,
 	getWordContents,
 	isImage,
 	isOtherText,
@@ -67,7 +66,7 @@ import { Extension } from "@codemirror/state";
 import { randomName } from "./namegenerator";
 import { azureAiFetch, openAiFetch } from "./byollm";
 
-let noticeTimeout: NodeJS.Timeout;
+let noticeTimeout: number;
 
 const animateNotice = (notice: Notice) => {
 	let message = notice.noticeEl.innerText;
@@ -82,7 +81,7 @@ const animateNotice = (notice: Notice) => {
 		message = message.replace(" ...", "    ");
 	}
 	notice.setMessage(message);
-	noticeTimeout = setTimeout(() => animateNotice(notice), 500);
+	noticeTimeout = window.setTimeout(() => animateNotice(notice), 500);
 };
 
 export default class CloudAtlasPlugin extends Plugin {
@@ -304,6 +303,49 @@ export default class CloudAtlasPlugin extends Plugin {
 		};
 	};
 
+	getFileContents = async (
+		basePath: string,
+		path: string
+	): Promise<string | null> => {
+		const contents = await this.app.vault.readBinary(
+			this.app.vault.getAbstractFileByPath(`${basePath}/${path}`) as TFile
+		);
+		try {
+			return new TextDecoder("utf8", { fatal: true }).decode(contents);
+		} catch (e) {
+			console.debug(e);
+			return null;
+		}
+	};
+
+	getImageNodeContent = async (
+		basePath: string,
+		node: FileNode
+	): Promise<string> => {
+		return this.getImageContent(basePath, node.file);
+	};
+
+	getImageContent = async (
+		basePath: string,
+		path: string
+	): Promise<string> => {
+		const contents = await this.app.vault.readBinary(
+			this.app.vault.getAbstractFileByPath(`${basePath}/${path}`) as TFile
+		);
+		const buffedInput = Buffer.from(contents).toString("base64");
+
+		// use the file extension to determine the mime type
+		// can we use a case statement here?
+		if (path.endsWith(".jpg") || path.endsWith(".jpeg")) {
+			return `data:image/jpeg;base64,${buffedInput}`;
+		} else if (path.endsWith(".gif")) {
+			return `data:image/gif;base64,${buffedInput}`;
+		}
+
+		// default to png
+		return `data:image/png;base64,${buffedInput}`;
+	};
+
 	parseExclusionPatterns = (patterns: string[]): RegExp[] => {
 		return patterns.map((pattern) => new RegExp(pattern));
 	};
@@ -406,13 +448,13 @@ export default class CloudAtlasPlugin extends Plugin {
 				return await this.canvasOps(getFileByPath(path, this.app));
 			}
 			if (isImage(path)) {
-				return await getImageContent(basePath, path);
+				return await this.getImageContent(basePath, path);
 			}
 			if (isWord(path)) {
 				return await getWordContents(basePath, path);
 			}
 			if (isOtherText(path)) {
-				return getFileContents(basePath, path);
+				return await this.getFileContents(basePath, path);
 			}
 			return await this.readNote(path);
 		} catch (e) {
@@ -480,18 +522,16 @@ export default class CloudAtlasPlugin extends Plugin {
 	};
 
 	fetchResponse = async (requestId: string): Promise<ResponseRow[]> => {
-		const response = await fetch(
-			`https://${SUPABASE_URL}/rest/v1/atlas_responses?request_id=eq.${requestId}&select=response`,
-			{
-				headers: {
-					apikey: SUPABASE_ANON_KEY,
-					Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-					"Content-Type": "application/json",
-					"x-api-key": this.settings.apiKey,
-				},
-				method: "GET",
-			}
-		);
+		const response = await requestUrl({
+			url: `https://${SUPABASE_URL}/rest/v1/atlas_responses?request_id=eq.${requestId}&select=response`,
+			headers: {
+				apikey: SUPABASE_ANON_KEY,
+				Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+				"Content-Type": "application/json",
+				"x-api-key": this.settings.apiKey,
+			},
+			method: "GET",
+		});
 
 		const respJson = await response.json();
 
@@ -575,7 +615,8 @@ export default class CloudAtlasPlugin extends Plugin {
 			? "https://dev-api.cloud-atlas.ai/run"
 			: "https://api.cloud-atlas.ai/run";
 		url = this.settings.developmentMode ? "http://localhost:8787/run" : url;
-		const response = await fetch(url, {
+		const response = await requestUrl({
+			url,
 			headers: {
 				"x-api-key": this.settings.apiKey,
 				"Content-Type": "application/json",
@@ -959,7 +1000,7 @@ export default class CloudAtlasPlugin extends Plugin {
 
 		this.addCommand({
 			id: `run-canvas-flow`,
-			name: `Run Canvas Flow`,
+			name: `Run Canvas flow`,
 			checkCallback: (checking: boolean) => {
 				const noteFile = this.app.workspace.getActiveFile();
 				if (noteFile) {
@@ -995,7 +1036,7 @@ export default class CloudAtlasPlugin extends Plugin {
 		console.debug("Adding command for flow: ", flow);
 		this.addCommand({
 			id: `run-flow-${flow}`,
-			name: `Run ${flow} Flow`,
+			name: `Run ${flow} flow`,
 			editorCallback: async (editor: Editor, view: MarkdownView) => {
 				await this.runFlow(editor, flow);
 			},

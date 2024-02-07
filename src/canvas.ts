@@ -1,5 +1,6 @@
 import { randomUUID } from "crypto";
 import { Payload } from "./interfaces";
+import { getImageContent } from "./utils";
 
 export type Node = FileNode | TextNode;
 
@@ -16,6 +17,13 @@ export interface FileNode {
 
 export function isFileNode(node: Node): boolean {
 	return Boolean((node as FileNode).file);
+}
+
+export async function getImageNodeContent(
+	basePath: string,
+	node: FileNode
+): Promise<string> {
+	return getImageContent(basePath, node.file);
 }
 
 export interface TextNode {

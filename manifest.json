@@ -1,9 +1,9 @@
 {
   "id": "cloud-atlas",
   "name": "Cloud Atlas",
-  "version": "0.9.0",
+  "version": "0.9.1mobile",
   "minAppVersion": "1.5.3",
-  "description": "A unique ChatGPT interface that prioritizes integration with your content and the Canvas interface.",
+  "description": "Interoperability between Obsidian and Cloud Atlas",
   "author": "Cloud Atlas",
   "authorUrl": "https://cloud-atlas.ai",
   "isDesktopOnly": false

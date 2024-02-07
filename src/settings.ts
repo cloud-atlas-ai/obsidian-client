@@ -69,7 +69,7 @@ export class CloudAtlasGlobalSettingsTab extends PluginSettingTab {
 				dropDown.addOption("openai", "OpenAI");
 				// dropDown.addOption('azureai', 'AzureAI');
 				dropDown.addOption("cloudatlas", "Cloud Atlas");
-				dropDown.setValue(this.plugin.settings.provider);
+                dropDown.setValue(this.plugin.settings.provider);
 				dropDown.onChange(async (value) => {
 					this.plugin.settings.provider = value;
 					this.display();
@@ -78,7 +78,7 @@ export class CloudAtlasGlobalSettingsTab extends PluginSettingTab {
 			});
 
 		if (this.plugin.settings.provider === "openai") {
-			new Setting(containerEl).setName("OpenAI").setHeading();
+			containerEl.createEl("h2", { text: "OpenAI" });
 
 			new Setting(containerEl)
 				.setName("OpenAI API Key")
@@ -114,7 +114,7 @@ export class CloudAtlasGlobalSettingsTab extends PluginSettingTab {
 		}
 
 		if (this.plugin.settings.provider === "azureai") {
-			new Setting(containerEl).setName("AzureAI").setHeading();
+			containerEl.createEl("h2", { text: "AzureAI" });
 
 			new Setting(containerEl)
 				.setName("AzureAI API Key")
@@ -168,7 +168,7 @@ export class CloudAtlasGlobalSettingsTab extends PluginSettingTab {
 
 		// Cloud Atlas Settigs
 		if (this.plugin.settings.provider === "cloudatlas") {
-			new Setting(containerEl).setName("Cloud Atlas").setHeading();
+			containerEl.createEl("h2", { text: "Cloud Atlas" });
 
 			new Setting(containerEl)
 				.setName("Cloud Atlas API Key")
@@ -226,7 +226,7 @@ export class CloudAtlasGlobalSettingsTab extends PluginSettingTab {
 					});
 			});
 		if (this.plugin.settings.advancedOptions) {
-			new Setting(containerEl).setName("LLM").setHeading();
+			containerEl.createEl("h2", { text: "LLM" });
 
 			new Setting(containerEl)
 				.setName("LLM temperature")
@@ -311,12 +311,12 @@ export class CloudAtlasGlobalSettingsTab extends PluginSettingTab {
 							})
 					);
 
-				new Setting(containerEl).setName("Wikify").setHeading();
+				containerEl.createEl("h2", { text: "Wikify" });
 
 				this.wikifySetting(containerEl, NamedEntity.Person);
 				this.wikifySetting(containerEl, NamedEntity.Location);
 
-				new Setting(containerEl).setName("Canvas Flows").setHeading();
+				containerEl.createEl("h2", { text: "Canvas Flows" });
 
 				new Setting(containerEl)
 					.setName("Resolve links")
@@ -349,7 +349,7 @@ export class CloudAtlasGlobalSettingsTab extends PluginSettingTab {
 							})
 					);
 
-				new Setting(containerEl).setName("Development").setHeading();
+				containerEl.createEl("h2", { text: "Development" });
 				new Setting(containerEl)
 					.setName("Development mode")
 					.setDesc("Redirects requests to http://localhost:8787")

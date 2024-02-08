@@ -36,7 +36,7 @@ import {
 	LlmOptions,
 	ResponseRow,
 } from "./interfaces";
-import { randomUUID } from "crypto";
+import { v4 as uuidv4 } from "uuid";
 import {
 	combinePayloads,
 	getFileContents,
@@ -518,7 +518,7 @@ export default class CloudAtlasPlugin extends Plugin {
 		);
 
 		canvasContent?.edges.push({
-			id: randomUUID(),
+			id: uuidv4(),
 			fromNode: inputNodes[0].id,
 			fromSide: "right",
 			toNode: responseNode.id,

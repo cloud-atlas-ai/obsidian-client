@@ -1,4 +1,4 @@
-import { randomUUID } from "crypto";
+import { v4 as uuidv4 } from "uuid";
 import { Payload } from "./interfaces";
 import { getImageContent } from "./utils";
 
@@ -45,7 +45,7 @@ export function textNode(
 	width?: number
 ): TextNode {
 	return {
-		id: randomUUID(),
+		id: uuidv4(),
 		type: "text",
 		text: text,
 		x: x ? x : 0,
@@ -141,7 +141,7 @@ export const payloadToGraph = (payload: Payload): CanvasContent => {
 
 	if (userPromptNode && inputNode) {
 		const userPromptEdge: Edge = {
-			id: randomUUID(),
+			id: uuidv4(),
 			fromNode: userPromptNode.id,
 			fromSide: "top",
 			toNode: inputNode.id,
@@ -158,7 +158,7 @@ export const payloadToGraph = (payload: Payload): CanvasContent => {
 
 	if (systemNode && inputNode) {
 		const systemEdge: Edge = {
-			id: randomUUID(),
+			id: uuidv4(),
 			fromNode: systemNode.id,
 			fromSide: "bottom",
 			toNode: inputNode.id,
@@ -192,7 +192,7 @@ export const payloadToGraph = (payload: Payload): CanvasContent => {
 	if (inputNode) {
 		additionalContextNodes.forEach((node) => {
 			const edge: Edge = {
-				id: randomUUID(),
+				id: uuidv4(),
 				fromNode: node.id,
 				fromSide: "right",
 				// @ts-ignore @typescript-eslint/strictNullChecks

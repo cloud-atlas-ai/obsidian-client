@@ -988,7 +988,6 @@ export default class CloudAtlasPlugin extends Plugin {
 		this.addFlowCommands();
 		this.activateView();
 
-
 		// this.addCommand({
 		// 	id: "refresh",
 		// 	name: "Refresh",
@@ -1001,7 +1000,7 @@ export default class CloudAtlasPlugin extends Plugin {
 
 		this.addCommand({
 			id: `run-canvas-flow`,
-			name: `Run Canvas Flow`,
+			name: `Run Canvas flow`,
 			checkCallback: (checking: boolean) => {
 				const noteFile = this.app.workspace.getActiveFile();
 				if (noteFile) {
@@ -1038,7 +1037,7 @@ export default class CloudAtlasPlugin extends Plugin {
 		console.debug("Adding command for flow: ", flow);
 		this.addCommand({
 			id: `run-flow-${flow}`,
-			name: `Run ${flow} Flow`,
+			name: `Run ${flow} flow`,
 			editorCallback: async (editor: Editor, view: MarkdownView) => {
 				await this.runFlow(editor, flow);
 			},

@@ -884,7 +884,7 @@ export default class CloudAtlasPlugin extends Plugin {
 		);
 	}
 
-	addFlowCommands = async () => {
+	addFlowCommands = () => {
 		// const vaultFiles = this.app.vault.getMarkdownFiles();
 
 		// console.debug(`Found ${vaultFiles.length} vault files`);
@@ -901,8 +901,8 @@ export default class CloudAtlasPlugin extends Plugin {
 
 		console.debug("Registered flows: ", this.settings.registeredFlows);
 
-		this.settings.registeredFlows.forEach(async (flow) => {
-			await this.addNewCommand(this, flow);
+		this.settings.registeredFlows.forEach((flow) => {
+			this.addNewCommand(this, flow);
 		});
 	};
 
@@ -930,7 +930,11 @@ export default class CloudAtlasPlugin extends Plugin {
 		console.debug("Entering onLoad");
 
 		this.addRibbonIcon("workflow", "Cloud Atlas flows", () => {
-			this.activateView();
+			try {
+				this.activateView();
+			} catch (e) {
+				console.debug(e);
+			}
 		});
 
 		await this.loadSettings();
@@ -967,9 +971,6 @@ export default class CloudAtlasPlugin extends Plugin {
 		}
 		console.debug("Bootstraped CloudAtlas folder");
 
-		await sleep(100);
-		this.addFlowCommands();
-
 		this.addCommand({
 			id: `create-flow`,
 			name: `Create new flow`,
@@ -982,6 +983,11 @@ export default class CloudAtlasPlugin extends Plugin {
 				this.app.vault.create(`CloudAtlas/${name}.flowdata.md`, "");
 			},
 		});
+
+		await sleep(100);
+		this.addFlowCommands();
+		this.activateView();
+
 
 		// this.addCommand({
 		// 	id: "refresh",

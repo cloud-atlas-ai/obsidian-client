@@ -8,6 +8,7 @@ import {
 	Notice,
 	Plugin,
 	TFile,
+	WorkspaceLeaf,
 	normalizePath,
 } from "obsidian";
 import {
@@ -66,6 +67,7 @@ import {
 import { Extension } from "@codemirror/state";
 import { randomName } from "./namegenerator";
 import { azureAiFetch, openAiFetch } from "./byollm";
+import { FlowView, CA_VIEW_TYPE } from "./flow_view";
 
 let noticeTimeout: NodeJS.Timeout;
 
@@ -319,27 +321,34 @@ export default class CloudAtlasPlugin extends Plugin {
 		return respJson;
 	};
 
-	runFlow = async (editor: Editor, flow: string) => {
+	runFlow = async (editor: Editor | null, flow: string) => {
+		console.log("Running flow: ", flow);
 		const inputFlowFile = this.app.workspace.getActiveFile();
 
 		if (!inputFlowFile) {
+			console.debug("No active file");
+			new Notice("No active file in the editor, open one and try again.");
 			return null;
 		}
 
-		const input = editor.getSelection();
+		const input = editor?.getSelection();
 		const fromSelection = Boolean(input);
 
 		if (fromSelection) {
-			editor.replaceSelection(
+			editor?.replaceSelection(
 				input +
 					"\n\n---\n\n" +
 					`\u{1F4C4}\u{2194}\u{1F916}` +
 					"\n\n---\n\n"
 			);
 		} else {
-			editor.replaceSelection(
-				"\n\n---\n\n" + `\u{1F4C4}\u{2194}\u{1F916}` + "\n\n---\n\n"
-			);
+			const current = await this.app.vault.read(inputFlowFile);
+			const output =
+				current +
+				"\n\n---\n\n" +
+				`\u{1F4C4}\u{2194}\u{1F916}` +
+				"\n\n---\n\n";
+			await this.app.vault.modify(inputFlowFile, output);
 		}
 
 		const notice = new Notice(`Running ${flow} flow ...`, 0);
@@ -876,27 +885,53 @@ export default class CloudAtlasPlugin extends Plugin {
 	}
 
 	addFlowCommands = async () => {
-		const vaultFiles = this.app.vault.getMarkdownFiles();
+		// const vaultFiles = this.app.vault.getMarkdownFiles();
 
-		console.debug(`Found ${vaultFiles.length} vault files`);
+		// console.debug(`Found ${vaultFiles.length} vault files`);
 
-		const cloudAtlasFlows = vaultFiles.filter(
-			(file) =>
-				file.path.startsWith("CloudAtlas/") &&
-				file.path.endsWith(".flow.md")
-		);
+		// const cloudAtlasFlows = vaultFiles.filter(
+		// 	(file) =>
+		// 		file.path.startsWith("CloudAtlas/") &&
+		// 		file.path.endsWith(".flow.md")
+		// );
 
-		console.debug(`Found ${cloudAtlasFlows.length} CloudAtlas flows`);
+		// console.debug(`Found ${cloudAtlasFlows.length} CloudAtlas flows`);
 
-		// Create commands for each flow
-		cloudAtlasFlows.forEach((flowFile) => {
-			const flow = flowFile.path.split("/")[1].split(".flow.md")[0];
-			this.addNewCommand(this, flow);
+		// Create commands for each flow registered in the settings
+
+		console.debug("Registered flows: ", this.settings.registeredFlows);
+
+		this.settings.registeredFlows.forEach(async (flow) => {
+			await this.addNewCommand(this, flow);
 		});
 	};
 
+	async activateView() {
+		const { workspace } = this.app;
+
+		let leaf: WorkspaceLeaf | null = null;
+		const leaves = workspace.getLeavesOfType(CA_VIEW_TYPE);
+
+		if (leaves.length > 0) {
+			// A leaf with our view already exists, use that
+			leaf = leaves[0];
+		} else {
+			// Our view could not be found in the workspace, create a new leaf
+			// in the right sidebar for it
+			leaf = workspace.getRightLeaf(false);
+			await leaf.setViewState({ type: CA_VIEW_TYPE, active: true });
+		}
+
+		// "Reveal" the leaf in case it is in a collapsed sidebar
+		workspace.revealLeaf(leaf);
+	}
+
 	async onload() {
 		console.debug("Entering onLoad");
+
+		this.addRibbonIcon("workflow", "Cloud Atlas flows", () => {
+			this.activateView();
+		});
 
 		await this.loadSettings();
 		console.debug("Loaded settings");
@@ -948,14 +983,15 @@ export default class CloudAtlasPlugin extends Plugin {
 			},
 		});
 
-		this.addCommand({
-			id: "refresh",
-			name: "Refresh",
-			callback: async () => {
-				this.addFlowCommands();
-				new Notice("Refreshed Cloud Atlas flows");
-			},
-		});
+		// this.addCommand({
+		// 	id: "refresh",
+		// 	name: "Refresh",
+		// 	callback: async () => {
+		// 		this.addFlowCommands();
+		// 		new Notice("Refreshed Cloud Atlas flows");
+		// 		this.activateView();
+		// 	},
+		// });
 
 		this.addCommand({
 			id: `run-canvas-flow`,
@@ -973,6 +1009,7 @@ export default class CloudAtlasPlugin extends Plugin {
 			},
 		});
 
+		this.registerView(CA_VIEW_TYPE, (leaf) => new FlowView(leaf, this));
 		this.addSettingTab(new CloudAtlasGlobalSettingsTab(this.app, this));
 	}
 

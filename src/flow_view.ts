@@ -45,9 +45,6 @@ export class FlowView extends ItemView {
 			const table = ul.createEl("table");
 			table.addClass("cloud-atlas-flow-table");
 			const tr = table.createEl("tr");
-			const td1 = tr.createEl("td");
-			td1.addClass("cloud-atlas-flow-td-half");
-			td1.createEl("span", { text: flow });
 			const td2 = tr.createEl("td");
 			const runBtn = td2.createEl("button", { text: "Run" });
 			setIcon(runBtn, "play");
@@ -56,6 +53,9 @@ export class FlowView extends ItemView {
 				// console.debug(`Running flow ${flow}`);
 				await this.plugin.runFlow(null, flow);
 			});
+      const flowNameTd = tr.createEl("td");
+			flowNameTd.addClass("cloud-atlas-flow-td-half");
+			flowNameTd.createEl("span", { text: flow });
 		});
 	}
 

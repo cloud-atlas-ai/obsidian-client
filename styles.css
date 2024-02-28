@@ -13,15 +13,6 @@ If your plugin does not need CSS, delete this file.
 	width: auto;
 }
 
-[cloud-atlas-tooltip]:hover::after {
-	display: block;
-	position: absolute;
-	content: attr(cloud-atlas-tooltip);
-	border: 1px solid black;
-	background: #eee;
-	padding: 0.25em;
-}
-
 table.cloud-atlas-flow-table {
 	width: 100%;
 	table-layout: fixed;
@@ -36,14 +27,15 @@ table.cloud-atlas-flow-table tr {
 button.cloud-atlas-flow-btn-primary {
 	background-color: var(--text-accent);
 	color: var(--background-primary);
-	/* border: 2px solid var(--text-accent); */
 	padding: var(--size-4-2);
 	border-radius: var(--size-4-4);
 	cursor: pointer;
-}
+	height: var(--size-4-8);
+	width: var(--size-4-8);
 
 table.cloud-atlas-flow-table td.cloud-atlas-flow-td-half {
 	width: 50%;
+	font-size: var(--font-text-size);
 }
 
 table.cloud-atlas-flow-table td.cloud-atlas-flow-td-quarter {

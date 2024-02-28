@@ -15,6 +15,10 @@ export class FlowView extends ItemView {
 		return CA_VIEW_TYPE;
 	}
 
+  getIcon(): string {
+    return "workflow";
+  }
+
 	getDisplayText() {
 		return "Cloud Atlas flows view";
 	}

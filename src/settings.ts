@@ -23,9 +23,9 @@ export interface CloudAtlasPluginSettings {
 	openAiSettings: OpenAiSettings;
 	azureAiSettings: AzureAiSettings;
 	provider: string;
+	registeredFlows: string[];
 }
 
-// TODO: If we only have one tab, we shouldn't have multiple tabs or this will get rejected when we submit it to the store.
 export class CloudAtlasGlobalSettingsTab extends PluginSettingTab {
 	plugin: CloudAtlasPlugin;
 
@@ -69,7 +69,7 @@ export class CloudAtlasGlobalSettingsTab extends PluginSettingTab {
 				dropDown.addOption("openai", "OpenAI");
 				// dropDown.addOption('azureai', 'AzureAI');
 				dropDown.addOption("cloudatlas", "Cloud Atlas");
-                dropDown.setValue(this.plugin.settings.provider);
+				dropDown.setValue(this.plugin.settings.provider);
 				dropDown.onChange(async (value) => {
 					this.plugin.settings.provider = value;
 					this.display();
@@ -282,40 +282,6 @@ export class CloudAtlasGlobalSettingsTab extends PluginSettingTab {
 								await this.plugin.saveSettings();
 							})
 					);
-
-				new Setting(containerEl)
-					.setName("Entity recognition")
-					.setDesc(
-						"Run named entity recognition on submitted notes, results in more relevant context entries, leading to more useful returns."
-					)
-					.addToggle((toggle) =>
-						toggle
-							.setValue(this.plugin.settings.entityRecognition)
-							.onChange(async (value) => {
-								this.plugin.settings.entityRecognition = value;
-								await this.plugin.saveSettings();
-							})
-					);
-
-				new Setting(containerEl)
-					.setName("Generate embeddings")
-					.setDesc(
-						"Generate embeddings for submitted notes, allows us to use retrieveal augmented generation."
-					)
-					.addToggle((toggle) =>
-						toggle
-							.setValue(this.plugin.settings.generateEmbeddings)
-							.onChange(async (value) => {
-								this.plugin.settings.generateEmbeddings = value;
-								await this.plugin.saveSettings();
-							})
-					);
-
-				containerEl.createEl("h2", { text: "Wikify" });
-
-				this.wikifySetting(containerEl, NamedEntity.Person);
-				this.wikifySetting(containerEl, NamedEntity.Location);
-
 				containerEl.createEl("h2", { text: "Canvas Flows" });
 
 				new Setting(containerEl)
@@ -361,6 +327,40 @@ export class CloudAtlasGlobalSettingsTab extends PluginSettingTab {
 								await this.plugin.saveSettings();
 							})
 					);
+				containerEl.createEl("h2", { text: "Register commands" });
+				const vaultFiles = this.app.vault.getMarkdownFiles();
+				const cloudAtlasFlows = vaultFiles.filter(
+					(file) =>
+						file.path.startsWith("CloudAtlas/") &&
+						file.path.endsWith(".flow.md")
+				);
+				cloudAtlasFlows.forEach((flow) => {
+					const name = flow.path.split("/")[1].split(".flow.md")[0];
+					new Setting(containerEl)
+						.setName(name)
+						.setDesc(`Register ${name} command`)
+						.addToggle((toggle) => {
+							toggle
+								.setValue(
+									this.plugin.settings.registeredFlows.indexOf(
+										name
+									) > -1
+								)
+								.onChange(async (value) => {
+									if (value) {
+										this.plugin.settings.registeredFlows.push(
+											name
+										);
+									} else {
+										this.plugin.settings.registeredFlows =
+											this.plugin.settings.registeredFlows.filter(
+												(flow) => flow !== name
+											);
+									}
+									await this.plugin.saveSettings();
+								});
+						});
+				});
 			}
 		}
 	}

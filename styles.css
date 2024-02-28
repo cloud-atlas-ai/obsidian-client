@@ -13,6 +13,34 @@ If your plugin does not need CSS, delete this file.
 	width: auto;
 }
 
+table.cloud-atlas-flow-table {
+	width: 100%;
+	table-layout: fixed;
+	border-collapse: collapse;
+}
+
+table.cloud-atlas-flow-table tr {
+	border-top: 2px solid var(--text-accent);
+	padding: var(--size-4-3);
+}
+
+button.cloud-atlas-flow-btn-primary {
+	background-color: var(--text-accent);
+	color: var(--background-primary);
+	padding: var(--size-4-2);
+	border-radius: var(--size-4-4);
+	cursor: pointer;
+	height: var(--size-4-8);
+	width: var(--size-4-8);
+
+table.cloud-atlas-flow-table td.cloud-atlas-flow-td-half {
+	width: 50%;
+	font-size: var(--font-text-size);
+}
+
+table.cloud-atlas-flow-table td.cloud-atlas-flow-td-quarter {
+	width: 25%;
+}
 
 .cloud-atlas-flow-canvas .canvas-wrapper::before,
 .cloud-atlas-flow-file::before {
@@ -44,20 +72,35 @@ If your plugin does not need CSS, delete this file.
 	margin-bottom: var(--size-4-3);
 }
 
-.canvas-node:not(.is-editing) .canvas-node-container:has(.ca-input, .ca-prompt, .ca-context, .ca-system) {
+.canvas-node:not(.is-editing)
+	.canvas-node-container:has(.ca-input, .ca-prompt, .ca-context, .ca-system) {
 	position: relative;
 	padding-left: 50px;
 }
 
-.cloud-atlas-flow-canvas .mod-canvas-color-1:not(.is-editing) .canvas-node-container,
-.cloud-atlas-flow-canvas .mod-canvas-color-2:not(.is-editing) .canvas-node-container,
-.cloud-atlas-flow-canvas .mod-canvas-color-4:not(.is-editing) .canvas-node-container,
-.cloud-atlas-flow-canvas .mod-canvas-color-5:not(.is-editing) .canvas-node-container {
+.cloud-atlas-flow-canvas
+	.mod-canvas-color-1:not(.is-editing)
+	.canvas-node-container,
+.cloud-atlas-flow-canvas
+	.mod-canvas-color-2:not(.is-editing)
+	.canvas-node-container,
+.cloud-atlas-flow-canvas
+	.mod-canvas-color-4:not(.is-editing)
+	.canvas-node-container,
+.cloud-atlas-flow-canvas
+	.mod-canvas-color-5:not(.is-editing)
+	.canvas-node-container {
 	position: relative;
 	padding-left: 50px;
 }
 
-.canvas-node:not(.is-editing) .canvas-node-container:has(.ca-input, .ca-prompt, .ca-context, .ca-system)::before {
+.canvas-node:not(.is-editing)
+	.canvas-node-container:has(
+		.ca-input,
+		.ca-prompt,
+		.ca-context,
+		.ca-system
+	)::before {
 	width: 50px !important;
 	background-color: rgba(var(--canvas-color), 0.7) !important;
 	position: absolute;
@@ -74,11 +117,19 @@ If your plugin does not need CSS, delete this file.
 	font-size: 1.2em;
 }
 
-.cloud-atlas-flow-canvas .mod-canvas-color-1:not(.is-editing) .canvas-node-container::before,
-.cloud-atlas-flow-canvas .mod-canvas-color-2:not(.is-editing) .canvas-node-container::before,
-.cloud-atlas-flow-canvas .mod-canvas-color-4:not(.is-editing) .canvas-node-container::before,
-.cloud-atlas-flow-canvas .mod-canvas-color-5:not(.is-editing) .canvas-node-container::before {
-    width: 50px !important;
+.cloud-atlas-flow-canvas
+	.mod-canvas-color-1:not(.is-editing)
+	.canvas-node-container::before,
+.cloud-atlas-flow-canvas
+	.mod-canvas-color-2:not(.is-editing)
+	.canvas-node-container::before,
+.cloud-atlas-flow-canvas
+	.mod-canvas-color-4:not(.is-editing)
+	.canvas-node-container::before,
+.cloud-atlas-flow-canvas
+	.mod-canvas-color-5:not(.is-editing)
+	.canvas-node-container::before {
+	width: 50px !important;
 	background-color: rgba(var(--canvas-color), 0.7) !important;
 	position: absolute;
 	left: 0;
@@ -94,22 +145,30 @@ If your plugin does not need CSS, delete this file.
 	font-size: 1.2em;
 }
 
-.cloud-atlas-flow-canvas .mod-canvas-color-1:not(.is-editing) .canvas-node-container::before,
+.cloud-atlas-flow-canvas
+	.mod-canvas-color-1:not(.is-editing)
+	.canvas-node-container::before,
 .canvas-node:not(.is-editing) .canvas-node-container:has(.ca-input)::before {
 	content: "Input";
 }
 
-.cloud-atlas-flow-canvas .mod-canvas-color-2:not(.is-editing) .canvas-node-container::before,
+.cloud-atlas-flow-canvas
+	.mod-canvas-color-2:not(.is-editing)
+	.canvas-node-container::before,
 .canvas-node:not(.is-editing) .canvas-node-container:has(.ca-prompt)::before {
 	content: "User Prompt";
 }
 
-.cloud-atlas-flow-canvas .mod-canvas-color-5:not(.is-editing) .canvas-node-container::before,
+.cloud-atlas-flow-canvas
+	.mod-canvas-color-5:not(.is-editing)
+	.canvas-node-container::before,
 .canvas-node:not(.is-editing) .canvas-node-container:has(.ca-system)::before {
 	content: "System Instructions";
 }
 
-.cloud-atlas-flow-canvas .mod-canvas-color-4:not(.is-editing) .canvas-node-container::before,
+.cloud-atlas-flow-canvas
+	.mod-canvas-color-4:not(.is-editing)
+	.canvas-node-container::before,
 .canvas-node:not(.is-editing) .canvas-node-container:has(.ca-context)::before {
 	content: "Context";
 }

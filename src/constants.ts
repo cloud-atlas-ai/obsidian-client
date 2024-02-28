@@ -34,6 +34,7 @@ export const DEFAULT_SETTINGS: CloudAtlasPluginSettings = {
 		endpoint: "",
 	},
     provider: "openai",
+	registeredFlows: [],
 };
 
 export const exampleFlowString = `---

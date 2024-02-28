@@ -282,39 +282,6 @@ export class CloudAtlasGlobalSettingsTab extends PluginSettingTab {
 								await this.plugin.saveSettings();
 							})
 					);
-
-				// new Setting(containerEl)
-				// 	.setName("Entity recognition")
-				// 	.setDesc(
-				// 		"Run named entity recognition on submitted notes, results in more relevant context entries, leading to more useful returns."
-				// 	)
-				// 	.addToggle((toggle) =>
-				// 		toggle
-				// 			.setValue(this.plugin.settings.entityRecognition)
-				// 			.onChange(async (value) => {
-				// 				this.plugin.settings.entityRecognition = value;
-				// 				await this.plugin.saveSettings();
-				// 			})
-				// 	);
-
-				// new Setting(containerEl)
-				// 	.setName("Generate embeddings")
-				// 	.setDesc(
-				// 		"Generate embeddings for submitted notes, allows us to use retrieveal augmented generation."
-				// 	)
-				// 	.addToggle((toggle) =>
-				// 		toggle
-				// 			.setValue(this.plugin.settings.generateEmbeddings)
-				// 			.onChange(async (value) => {
-				// 				this.plugin.settings.generateEmbeddings = value;
-				// 				await this.plugin.saveSettings();
-				// 			})
-				// 	);
-
-				// containerEl.createEl("h2", { text: "Wikify" });
-				// this.wikifySetting(containerEl, NamedEntity.Person);
-				// this.wikifySetting(containerEl, NamedEntity.Location);
-
 				containerEl.createEl("h2", { text: "Canvas Flows" });
 
 				new Setting(containerEl)

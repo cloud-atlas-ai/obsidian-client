@@ -31,14 +31,13 @@ export class FlowView extends ItemView {
 			(file) =>
 				file.path.startsWith("CloudAtlas/") &&
 				file.path.endsWith(".flow.md")
-		);
+		).map((f) => f.path.split("/")[1].split(".flow.md")[0]).sort();
 
 		console.debug(`Found ${cloudAtlasFlows.length} CloudAtlas flows`);
 
 		const ul = container.createEl("ul");
 		// Create commands for each flow
-		cloudAtlasFlows.sort().forEach((flowFile) => {
-			const flow = flowFile.path.split("/")[1].split(".flow.md")[0];
+		cloudAtlasFlows.forEach((flow) => {
 			const table = ul.createEl("table");
 			table.addClass("cloud-atlas-flow-table");
 			const tr = table.createEl("tr");

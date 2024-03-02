@@ -9,6 +9,7 @@ import {
 	TFile,
 } from "obsidian";
 import { CustomArrayDict } from "obsidian-typings";
+import { SUPABASE_ANON_KEY, SUPABASE_URL } from "./constants";
 
 // Utility function to safely get a TFile by path
 export function getFileByPath(filePath: string, app: App): TFile {
@@ -153,4 +154,57 @@ export async function getFileContents(basePath: string, path: string): Promise<s
 		console.debug(e);
 		return null;
 	}
+}
+
+export function cyrb53(str: string, seed = 0): string {
+	let h1 = 0xdeadbeef ^ seed,
+		h2 = 0x41c6ce57 ^ seed;
+	for (let i = 0, ch; i < str.length; i++) {
+		ch = str.charCodeAt(i);
+		h1 = Math.imul(h1 ^ ch, 2654435761);
+		h2 = Math.imul(h2 ^ ch, 1597334677);
+	}
+	h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507);
+	h1 ^= Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+	h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507);
+	h2 ^= Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+
+	return decToHex(4294967296 * (2097151 & h2) + (h1 >>> 0));
+}
+
+function decToHex(dec: number) {
+	return (dec + Math.pow(16, 6)).toString(16);
+}
+
+export async function fileExists(path: string) {
+	try {
+		return (await fsp.stat(path)).isFile();
+	} catch (e) {
+		return false;
+	}
+}
+
+export async function insertFlowFile(
+	apiKey: string,
+	flow: string,
+	file_contents: string,
+	file_hash: string | undefined,
+	file_path: string
+) {
+	return await fetch(`https://${SUPABASE_URL}/rest/v1/apikeys_flows`, {
+		headers: {
+			apikey: SUPABASE_ANON_KEY,
+			Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+			"Content-Type": "application/json",
+			"x-api-key": apiKey,
+		},
+		body: JSON.stringify({
+			api_key: apiKey,
+			flow,
+			file_contents,
+			file_hash,
+			file_path,
+		}),
+		method: "POST",
+	});
 }

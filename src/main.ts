@@ -51,6 +51,9 @@ import {
 	getBacklinksForFile,
 	isFlow,
 	isCanvasFlow,
+	cyrb53,
+	fileExists,
+	insertFlowFile,
 } from "./utils";
 import {
 	CloudAtlasGlobalSettingsTab,
@@ -69,6 +72,7 @@ import { Extension } from "@codemirror/state";
 import { randomName } from "./namegenerator";
 import { azureAiFetch, openAiFetch } from "./byollm";
 import { FlowView, CA_VIEW_TYPE } from "./flow_view";
+import { readFileSync } from "fs";
 
 let noticeTimeout: NodeJS.Timeout;
 
@@ -91,17 +95,21 @@ const animateNotice = (notice: Notice) => {
 export default class CloudAtlasPlugin extends Plugin {
 	settings: CloudAtlasPluginSettings;
 
+	getFlowFilePath = (flow: string) => {
+		return normalizePath(`CloudAtlas/${flow}.flow.md`);
+	};
+
+	getFlowdataFilePath = (flow: string) => {
+		return normalizePath(`CloudAtlas/${flow}.flowdata.md`);
+	};
+
 	collectInputsIntoPayload = async (
 		input: string | null,
 		inputFlowFile: TFile,
 		flow: string
 	): Promise<Payload | null> => {
-		const templateFlowFilePath = normalizePath(
-			`CloudAtlas/${flow}.flow.md`
-		);
-		const dataFlowFilePath = normalizePath(
-			`CloudAtlas/${flow}.flowdata.md`
-		);
+		const templateFlowFilePath = this.getFlowFilePath(flow);
+		const dataFlowFilePath = this.getFlowdataFilePath(flow);
 
 		const flows = [
 			templateFlowFilePath,
@@ -322,7 +330,62 @@ export default class CloudAtlasPlugin extends Plugin {
 		return respJson;
 	};
 
-	uploadFlow = async (flow: string) => {};
+	uploadFlow = async (flow: string) => {
+		const adapter = this.app.vault.adapter;
+		let basePath = null;
+		if (adapter instanceof FileSystemAdapter) {
+			basePath = adapter.getBasePath();
+		}
+
+		if (basePath == null) {
+			throw new Error("Could not get vault base path");
+		}
+
+		let flowDataFileContents;
+		let flowDataFileHash;
+
+		const flowFileContents = Buffer.from(
+			readFileSync(`${basePath}/${this.getFlowFilePath(flow)}`)
+		).toString("base64");
+
+		const flowFileHash = cyrb53(flowFileContents);
+
+		const flowdataFilePath = `${basePath}/${this.getFlowdataFilePath(
+			flow
+		)}`;
+
+		if (await fileExists(flowdataFilePath)) {
+			flowDataFileContents = Buffer.from(
+				readFileSync(flowdataFilePath)
+			).toString("base64");
+
+			flowDataFileHash = cyrb53(flowDataFileContents);
+		}
+
+		console.debug("Uploading flow: ", flow);
+
+		const flowResponse = await insertFlowFile(
+			this.settings.apiKey,
+			flow,
+			flowFileContents,
+			flowFileHash,
+			this.getFlowFilePath(flow)
+		);
+
+		console.debug("Flow file insert: ", flowResponse.status);
+
+		if (flowDataFileContents) {
+			const flowdataResponse = await insertFlowFile(
+				this.settings.apiKey,
+				flow,
+				flowDataFileContents,
+				flowDataFileHash,
+				this.getFlowdataFilePath(flow)
+			);
+
+			console.debug("Flowdata file insert: ", flowdataResponse.status);
+		}
+	};
 
 	runFlow = async (editor: Editor | null, flow: string) => {
 		console.log("Running flow: ", flow);

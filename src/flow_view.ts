@@ -15,9 +15,9 @@ export class FlowView extends ItemView {
 		return CA_VIEW_TYPE;
 	}
 
-  getIcon(): string {
-    return "workflow";
-  }
+	getIcon(): string {
+		return "workflow";
+	}
 
 	getDisplayText() {
 		return "Cloud Atlas flows view";
@@ -31,11 +31,14 @@ export class FlowView extends ItemView {
 
 		console.debug(`Found ${vaultFiles.length} vault files`);
 
-		const cloudAtlasFlows = vaultFiles.filter(
-			(file) =>
-				file.path.startsWith("CloudAtlas/") &&
-				file.path.endsWith(".flow.md")
-		).map((f) => f.path.split("/")[1].split(".flow.md")[0]).sort();
+		const cloudAtlasFlows = vaultFiles
+			.filter(
+				(file) =>
+					file.path.startsWith("CloudAtlas/") &&
+					file.path.endsWith(".flow.md")
+			)
+			.map((f) => f.path.split("/")[1].split(".flow.md")[0])
+			.sort();
 
 		console.debug(`Found ${cloudAtlasFlows.length} CloudAtlas flows`);
 
@@ -53,7 +56,15 @@ export class FlowView extends ItemView {
 				// console.debug(`Running flow ${flow}`);
 				await this.plugin.runFlow(null, flow);
 			});
-      const flowNameTd = tr.createEl("td");
+			// const uploadTd = tr.createEl("td");
+			const uploadBtn = td2.createEl("button", { text: "Upload" });
+			setIcon(uploadBtn, "upload");
+			uploadBtn.addClass("cloud-atlas-flow-btn-primary");
+			uploadBtn.addEventListener("click", async () => {
+				// console.debug(`Uploading flow ${flow}`);
+				await this.plugin.uploadFlow(flow);
+			});
+			const flowNameTd = tr.createEl("td");
 			flowNameTd.addClass("cloud-atlas-flow-td-half");
 			flowNameTd.createEl("span", { text: flow });
 		});

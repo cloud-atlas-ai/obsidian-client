@@ -322,6 +322,8 @@ export default class CloudAtlasPlugin extends Plugin {
 		return respJson;
 	};
 
+	uploadFlow = async (flow: string) => {};
+
 	runFlow = async (editor: Editor | null, flow: string) => {
 		console.log("Running flow: ", flow);
 		const inputFlowFile = this.app.workspace.getActiveFile();

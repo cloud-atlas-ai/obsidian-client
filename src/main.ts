@@ -51,9 +51,7 @@ import {
 	getBacklinksForFile,
 	isFlow,
 	isCanvasFlow,
-	cyrb53,
-	fileExists,
-	insertFlowFile,
+	insertPayload,
 } from "./utils";
 import {
 	CloudAtlasGlobalSettingsTab,
@@ -72,7 +70,6 @@ import { Extension } from "@codemirror/state";
 import { randomName } from "./namegenerator";
 import { azureAiFetch, openAiFetch } from "./byollm";
 import { FlowView, CA_VIEW_TYPE } from "./flow_view";
-import { readFileSync } from "fs";
 
 let noticeTimeout: NodeJS.Timeout;
 
@@ -331,59 +328,23 @@ export default class CloudAtlasPlugin extends Plugin {
 	};
 
 	uploadFlow = async (flow: string) => {
-		const adapter = this.app.vault.adapter;
-		let basePath = null;
-		if (adapter instanceof FileSystemAdapter) {
-			basePath = adapter.getBasePath();
-		}
+		const templateFlowFilePath = this.getFlowFilePath(flow);
+		const dataFlowFilePath = this.getFlowdataFilePath(flow);
 
-		if (basePath == null) {
-			throw new Error("Could not get vault base path");
-		}
+		const flows = [templateFlowFilePath, dataFlowFilePath];
 
-		let flowDataFileContents;
-		let flowDataFileHash;
+		const payload = await this.combineFlows(flows, null);
 
-		const flowFileContents = Buffer.from(
-			readFileSync(`${basePath}/${this.getFlowFilePath(flow)}`)
-		).toString("base64");
+		console.log(payload);
 
-		const flowFileHash = cyrb53(flowFileContents);
-
-		const flowdataFilePath = `${basePath}/${this.getFlowdataFilePath(
-			flow
-		)}`;
-
-		if (await fileExists(flowdataFilePath)) {
-			flowDataFileContents = Buffer.from(
-				readFileSync(flowdataFilePath)
-			).toString("base64");
-
-			flowDataFileHash = cyrb53(flowDataFileContents);
-		}
-
-		console.debug("Uploading flow: ", flow);
-
-		const flowResponse = await insertFlowFile(
-			this.settings.apiKey,
-			flow,
-			flowFileContents,
-			flowFileHash,
-			this.getFlowFilePath(flow)
-		);
-
-		console.debug("Flow file insert: ", flowResponse.status);
-
-		if (flowDataFileContents) {
-			const flowdataResponse = await insertFlowFile(
+		if (payload) {
+			const flowResponse = await insertPayload(
 				this.settings.apiKey,
 				flow,
-				flowDataFileContents,
-				flowDataFileHash,
-				this.getFlowdataFilePath(flow)
+				payload
 			);
 
-			console.debug("Flowdata file insert: ", flowdataResponse.status);
+			console.debug("Payload insert: ", flowResponse.status);
 		}
 	};
 

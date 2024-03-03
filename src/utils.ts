@@ -184,12 +184,10 @@ export async function fileExists(path: string) {
 	}
 }
 
-export async function insertFlowFile(
+export async function insertPayload(
 	apiKey: string,
 	flow: string,
-	file_contents: string,
-	file_hash: string | undefined,
-	file_path: string
+	payload: Payload
 ) {
 	return await fetch(`https://${SUPABASE_URL}/rest/v1/apikeys_flows`, {
 		headers: {
@@ -201,9 +199,7 @@ export async function insertFlowFile(
 		body: JSON.stringify({
 			api_key: apiKey,
 			flow,
-			file_contents,
-			file_hash,
-			file_path,
+			payload
 		}),
 		method: "POST",
 	});

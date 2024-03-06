@@ -907,11 +907,8 @@ export default class CloudAtlasPlugin extends Plugin {
 			// Our view could not be found in the workspace, create a new leaf
 			// in the right sidebar for it
 			leaf = workspace.getRightLeaf(false);
-			await leaf.setViewState({ type: CA_VIEW_TYPE, active: true });
+			await leaf?.setViewState({ type: CA_VIEW_TYPE, active: true });
 		}
-
-		// "Reveal" the leaf in case it is in a collapsed sidebar
-		workspace.revealLeaf(leaf);
 	}
 
 	async onload() {

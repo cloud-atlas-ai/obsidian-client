@@ -1,8 +1,8 @@
 {
   "id": "cloud-atlas",
   "name": "Cloud Atlas",
-  "version": "0.9.1",
-  "minAppVersion": "1.5.3",
+  "version": "1.0.0",
+  "minAppVersion": "1.5.7",
   "description": "Cloud Atlas provides a unique way to use content from your vault with ChatGPT. Reference a note and it (optionally) gets resolved and sent along. We also provide a Canvas interface for ChatGPT. Advanced features include chaining results and batching.",
   "author": "Cloud Atlas",
   "authorUrl": "https://cloud-atlas.ai",

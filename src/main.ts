@@ -325,7 +325,7 @@ export default class CloudAtlasPlugin extends Plugin {
 		console.log("Running flow: ", flow);
 		const inputFlowFile = this.app.workspace.getActiveFile();
 
-		if (!inputFlowFile) {
+		if (!inputFlowFile || !editor) {
 			console.debug("No active file");
 			new Notice("No active file in the editor, open one and try again.");
 			return null;
@@ -334,21 +334,23 @@ export default class CloudAtlasPlugin extends Plugin {
 		const input = editor?.getSelection();
 		const fromSelection = Boolean(input);
 
-		if (fromSelection) {
-			editor?.replaceSelection(
+    if (fromSelection) {
+			editor.replaceSelection(
 				input +
 					"\n\n---\n\n" +
 					`\u{1F4C4}\u{2194}\u{1F916}` +
 					"\n\n---\n\n"
 			);
 		} else {
-			const current = await this.app.vault.read(inputFlowFile);
-			const output =
-				current +
-				"\n\n---\n\n" +
-				`\u{1F4C4}\u{2194}\u{1F916}` +
-				"\n\n---\n\n";
-			await this.app.vault.modify(inputFlowFile, output);
+      // Create the placeholder content to be inserted
+      const curCursor = editor.getCursor();
+      const placeholderContent =
+        "\n\n---\n\n" +
+        `\u{1F4C4}\u{2194}\u{1F916}` +
+        "\n\n---\n\n";
+
+      // Insert the placeholder content at the cursor position
+      editor.replaceRange(placeholderContent, curCursor);
 		}
 
 		const notice = new Notice(`Running ${flow} flow ...`, 0);

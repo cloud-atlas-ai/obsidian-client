@@ -1,4 +1,3 @@
-import { readFileSync } from "fs";
 import WordExtractor from "word-extractor";
 import { AdditionalContext, Payload, User } from "./interfaces";
 import {
@@ -93,7 +92,7 @@ export async function getImageContent(
 	basePath: string,
 	path: string
 ): Promise<string> {
-	const contents = readFileSync(`${basePath}/${path}`);
+	const contents = await this.app.vault.readBinary(`${basePath}/${path}`);
 	const buffedInput = Buffer.from(contents).toString("base64");
 
 	// use the file extension to determine the mime type
@@ -146,8 +145,8 @@ export async function getWordContents(
 	return extracted.getBody();
 }
 
-export function getFileContents(basePath: string, path: string): string | null {
-	const contents = readFileSync(`${basePath}/${path}`);
+export async function getFileContents(basePath: string, path: string): Promise<string | null> {
+	const contents = await this.app.vault.read(`${basePath}/${path}`);
 	try {
 		return new TextDecoder("utf8", { fatal: true }).decode(contents);
 	} catch (e) {

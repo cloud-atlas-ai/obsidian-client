@@ -1018,7 +1018,7 @@ export default class CloudAtlasPlugin extends Plugin {
 
 		this.addCommand({
 			id: `compile-flow-${flow}`,
-			name: `Compile ${flow} Flow`,
+			name: `Compile ${flow} flow`,
 			editorCallback: async (editor: Editor, view: MarkdownView) => {
 				const input = editor.getSelection();
 				const inputFlowFile = this.app.workspace.getActiveFile();

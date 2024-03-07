@@ -282,7 +282,7 @@ export class CloudAtlasGlobalSettingsTab extends PluginSettingTab {
 								await this.plugin.saveSettings();
 							})
 					);
-				containerEl.createEl("h2", { text: "Canvas Flows" });
+				containerEl.createEl("h2", { text: "Canvas flows" });
 
 				new Setting(containerEl)
 					.setName("Resolve links")

@@ -8,7 +8,7 @@ This plugin integrates Obsidian with Cloud Atlas, enriching your note-taking exp
 
 - **Canvas Flows**: Use the interactive canvas to set up and run flows with components like input, context, and user prompts.
   - Name these as `<flow name>.flow.canvas`
-  - Execute them using the `Run Canvas Flow Command`.
+  - Execute them using the command palette or the Cloud Atlas view.
 
 - **Markdown Notes Mode**: Run flows directly on Markdown files with support for context selection or using the current file as context.
   - Define flows in `CloudAtlas/<flow name>.flow.md`
@@ -81,12 +81,15 @@ This  will walk you through creating, running, and customizing your personal flo
     - `resolveBacklinks` and `resolveForwardLinks`: Whether to include content from linked notes.
     - `exclusionPattern`: Patterns for notes to exclude, useful for omitting sensitive data.
 
-4. **Refresh Your Flows**: After creating or updating a flow, use the command palette and run `Refresh Flows`. This will scan for new or updated flows and add the necessary commands to execute them.
+4. **Running Flows**:
+
 
 ### Step 2: Running Your Flow
 
 1. **Open Any Note**: With your flow created, open any note in your vault where you want to run the flow.
-2. **Execute the Flow**: Use Obsidian's command palette (`Ctrl/Cmd + P`) and type `Run demo Flow`. Selecting this command will execute your flow on the current note.
+2. **Execute the Flow**:
+   1. **From the Command Palette:** After creating or updating a flow, you can register it as a command. Go to the Settings and register it as a command. This will allow you to run the flow from the command palette.
+   2. **From the Cloud Atlas view:** You can also run flows from the Cloud Atlas view by clicking on the Play button next to the flow name.
 3. **View the Results**: Cloud Atlas processes the note and appends or replaces the content based on your flow settings. The response from Cloud Atlas will appear in your note.
 
 ### Step 3: Customizing Your Flow

@@ -44,7 +44,7 @@ table.cloud-atlas-flow-table td.cloud-atlas-flow-td-quarter {
 
 .cloud-atlas-flow-canvas .canvas-wrapper::before,
 .cloud-atlas-flow-file::before {
-	content: "CloudAtlas Flow";
+	content: "CloudAtlas flow";
 	display: block;
 	font-size: var(--font-larger);
 	color: var(--foreground-secondary);
@@ -61,7 +61,7 @@ table.cloud-atlas-flow-table td.cloud-atlas-flow-td-quarter {
 }
 
 .cloud-atlas-flowdata-file::before {
-	content: "CloudAtlas Flow Data";
+	content: "CloudAtlas flow Data";
 	display: block;
 	font-size: var(--font-larger);
 	color: var(--foreground-secondary-alt);

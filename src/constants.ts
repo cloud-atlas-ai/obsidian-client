@@ -8,6 +8,8 @@ export const SUPABASE_URL = "auegwhnycfvcbloucmhv.supabase.co";
 export const ADDITIONAL_SYSTEM =
 	"Use the content in 'input' as the main context, consider the 'additional_context' map for related information, and respond based on the instructions in 'user_prompt'. Assist the user by synthesizing information from these elements into coherent and useful insights or actions.";
 
+export const PLACEHOLDER = `\u{1F4C4}\u{2194}\u{1F916}`;
+
 export const DEFAULT_SETTINGS: CloudAtlasPluginSettings = {
 	apiKey: "",
 	advancedOptions: false,

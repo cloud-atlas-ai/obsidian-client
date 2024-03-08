@@ -338,10 +338,7 @@ export default class CloudAtlasPlugin extends Plugin {
 		if (editor) {
 			if (fromSelection) {
 				editor.replaceSelection(
-					input +
-						"\n\n---\n\n" +
-						PLACEHOLDER +
-						"\n\n---\n"
+					input + "\n\n---\n\n" + PLACEHOLDER + "\n\n---\n"
 				);
 			} else {
 				// Create the placeholder content to be inserted
@@ -354,11 +351,7 @@ export default class CloudAtlasPlugin extends Plugin {
 			}
 		} else {
 			const current = await this.app.vault.read(inputFlowFile);
-			const output =
-				current +
-				"\n---\n" +
-				PLACEHOLDER +
-				"\n\n---\n";
+			const output = current + "\n---\n" + PLACEHOLDER + "\n\n---\n";
 			await this.app.vault.modify(inputFlowFile, output);
 		}
 
@@ -370,10 +363,7 @@ export default class CloudAtlasPlugin extends Plugin {
 			const currentNoteContents = await this.app.vault.read(
 				inputFlowFile
 			);
-			const output = currentNoteContents.replace(
-				PLACEHOLDER,
-				respJson
-			);
+			const output = currentNoteContents.replace(PLACEHOLDER, respJson);
 
 			this.app.vault.modify(inputFlowFile, output);
 		} catch (e) {
@@ -905,7 +895,7 @@ export default class CloudAtlasPlugin extends Plugin {
 		});
 	};
 
-	async activateView() {
+	async activateView(open: boolean) {
 		const { workspace } = this.app;
 
 		let leaf: WorkspaceLeaf | null = null;
@@ -914,6 +904,9 @@ export default class CloudAtlasPlugin extends Plugin {
 		if (leaves.length > 0) {
 			// A leaf with our view already exists, use that
 			leaf = leaves[0];
+			if (open) {
+				workspace.revealLeaf(leaf);
+			}
 		} else {
 			// Our view could not be found in the workspace, create a new leaf
 			// in the right sidebar for it
@@ -927,7 +920,7 @@ export default class CloudAtlasPlugin extends Plugin {
 
 		this.addRibbonIcon("workflow", "Cloud Atlas flows", () => {
 			try {
-				this.activateView();
+				this.activateView(true);
 			} catch (e) {
 				console.debug(e);
 			}
@@ -978,7 +971,7 @@ export default class CloudAtlasPlugin extends Plugin {
 		});
 
 		this.addFlowCommands();
-		this.activateView();
+		this.activateView(false);
 
 		this.addCommand({
 			id: `run-canvas-flow`,

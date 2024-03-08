@@ -60,6 +60,7 @@ import {
 	ADDITIONAL_SYSTEM,
 	CANVAS_CONTENT,
 	DEFAULT_SETTINGS,
+	PLACEHOLDER,
 	SUPABASE_ANON_KEY,
 	SUPABASE_URL,
 	exampleFlowString,
@@ -325,7 +326,7 @@ export default class CloudAtlasPlugin extends Plugin {
 		console.log("Running flow: ", flow);
 		const inputFlowFile = this.app.workspace.getActiveFile();
 
-		if (!inputFlowFile || !editor) {
+		if (!inputFlowFile) {
 			console.debug("No active file");
 			new Notice("No active file in the editor, open one and try again.");
 			return null;
@@ -334,23 +335,31 @@ export default class CloudAtlasPlugin extends Plugin {
 		const input = editor?.getSelection();
 		const fromSelection = Boolean(input);
 
-    if (fromSelection) {
-			editor.replaceSelection(
-				input +
-					"\n\n---\n\n" +
-					`\u{1F4C4}\u{2194}\u{1F916}` +
-					"\n\n---\n\n"
-			);
-		} else {
-      // Create the placeholder content to be inserted
-      const curCursor = editor.getCursor();
-      const placeholderContent =
-        "\n\n---\n\n" +
-        `\u{1F4C4}\u{2194}\u{1F916}` +
-        "\n\n---\n\n";
+		if (editor) {
+			if (fromSelection) {
+				editor.replaceSelection(
+					input +
+						"\n\n---\n\n" +
+						PLACEHOLDER +
+						"\n\n---\n"
+				);
+			} else {
+				// Create the placeholder content to be inserted
+				const curCursor = editor.getCursor();
+				const placeholderContent =
+					"\n---\n\n" + PLACEHOLDER + "\n\n---\n";
 
-      // Insert the placeholder content at the cursor position
-      editor.replaceRange(placeholderContent, curCursor);
+				// Insert the placeholder content at the cursor position
+				editor.replaceRange(placeholderContent, curCursor);
+			}
+		} else {
+			const current = await this.app.vault.read(inputFlowFile);
+			const output =
+				current +
+				"\n---\n" +
+				PLACEHOLDER +
+				"\n\n---\n";
+			await this.app.vault.modify(inputFlowFile, output);
 		}
 
 		const notice = new Notice(`Running ${flow} flow ...`, 0);
@@ -362,7 +371,7 @@ export default class CloudAtlasPlugin extends Plugin {
 				inputFlowFile
 			);
 			const output = currentNoteContents.replace(
-				`\u{1F4C4}\u{2194}\u{1F916}`,
+				PLACEHOLDER,
 				respJson
 			);
 

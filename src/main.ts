@@ -51,6 +51,7 @@ import {
 	getBacklinksForFile,
 	isFlow,
 	isCanvasFlow,
+	insertPayload,
 } from "./utils";
 import {
 	CloudAtlasGlobalSettingsTab,
@@ -91,17 +92,21 @@ const animateNotice = (notice: Notice) => {
 export default class CloudAtlasPlugin extends Plugin {
 	settings: CloudAtlasPluginSettings;
 
+	getFlowFilePath = (flow: string) => {
+		return normalizePath(`CloudAtlas/${flow}.flow.md`);
+	};
+
+	getFlowdataFilePath = (flow: string) => {
+		return normalizePath(`CloudAtlas/${flow}.flowdata.md`);
+	};
+
 	collectInputsIntoPayload = async (
 		input: string | null,
 		inputFlowFile: TFile,
 		flow: string
 	): Promise<Payload | null> => {
-		const templateFlowFilePath = normalizePath(
-			`CloudAtlas/${flow}.flow.md`
-		);
-		const dataFlowFilePath = normalizePath(
-			`CloudAtlas/${flow}.flowdata.md`
-		);
+		const templateFlowFilePath = this.getFlowFilePath(flow);
+		const dataFlowFilePath = this.getFlowdataFilePath(flow);
 
 		const flows = [
 			templateFlowFilePath,
@@ -320,6 +325,27 @@ export default class CloudAtlasPlugin extends Plugin {
 
 		const respJson = await this.apiFetch(payload);
 		return respJson;
+	};
+
+	uploadFlow = async (flow: string) => {
+		const templateFlowFilePath = this.getFlowFilePath(flow);
+		const dataFlowFilePath = this.getFlowdataFilePath(flow);
+
+		const flows = [templateFlowFilePath, dataFlowFilePath];
+
+		const payload = await this.combineFlows(flows, null);
+
+		console.log(payload);
+
+		if (payload) {
+			const flowResponse = await insertPayload(
+				this.settings.apiKey,
+				flow,
+				payload
+			);
+
+			console.debug("Payload insert: ", flowResponse.status);
+		}
 	};
 
 	runFlow = async (editor: Editor | null, flow: string) => {

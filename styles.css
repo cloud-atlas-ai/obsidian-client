@@ -32,6 +32,17 @@ button.cloud-atlas-flow-btn-primary {
 	cursor: pointer;
 	height: var(--size-4-8);
 	width: var(--size-4-8);
+}
+
+.cloud-atlas-flow-btn-primary:active {
+	position: relative;
+	top: 2px;
+}
+
+.cloud-atlas-flow-btn-primary:hover {
+	background-color: var(--background-primary);
+	color: var(--text-accent);
+}
 
 table.cloud-atlas-flow-table td.cloud-atlas-flow-td-half {
 	width: 50%;

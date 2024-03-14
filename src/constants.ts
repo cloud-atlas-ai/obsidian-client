@@ -1,6 +1,9 @@
 import { CanvasContent } from "./canvas";
 import { CloudAtlasPluginSettings } from "./settings";
 
+export const NOTE_PLACEHOLDER =
+	"\n\n---\n\n" + `\u{1F4C4}\u{2194}\u{1F916}` + "\n\n---\n\n";
+
 export const SUPABASE_ANON_KEY =
 	"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF1ZWd3aG55Y2Z2Y2Jsb3VjbWh2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE2OTc4MTkzMTIsImV4cCI6MjAxMzM5NTMxMn0.q2GoWOzLHecS8wS8GlpFTxN6kzcIE-Xx4KS7Jkr7-30";
 export const SUPABASE_URL = "auegwhnycfvcbloucmhv.supabase.co";
@@ -35,7 +38,7 @@ export const DEFAULT_SETTINGS: CloudAtlasPluginSettings = {
 		deploymentId: "",
 		endpoint: "",
 	},
-    provider: "openai",
+	provider: "openai",
 	registeredFlows: [],
 };
 

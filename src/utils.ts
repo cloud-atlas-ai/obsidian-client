@@ -176,14 +176,6 @@ function decToHex(dec: number) {
 	return (dec + Math.pow(16, 6)).toString(16);
 }
 
-export async function fileExists(path: string) {
-	try {
-		return (await fsp.stat(path)).isFile();
-	} catch (e) {
-		return false;
-	}
-}
-
 export async function insertPayload(
 	apiKey: string,
 	flow: string,

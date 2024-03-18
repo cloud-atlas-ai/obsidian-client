@@ -21,7 +21,7 @@
     "@typescript-eslint/eslint-plugin": "^7.1.1",
     "@typescript-eslint/parser": "^7.1.1",
     "builtin-modules": "^3.3.0",
-    "esbuild": "^0.20.1",
+    "esbuild": "^0.20.2",
     "obsidian": "^1.5.7",
     "tslib": "^2.6.2",
     "typescript": "^5.4.2"

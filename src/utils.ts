@@ -92,7 +92,6 @@ export function joinStrings(
 }
 
 export async function getImageContent(
-	basePath: string,
 	path: string
 ): Promise<string> {
   try {
@@ -159,7 +158,7 @@ export async function getWordContents(
   }
 }
 
-export async function getFileContents(basePath: string, path: string): Promise<string | null> {
+export async function getFileContents(path: string): Promise<string | null> {
 	try {
     return await this.app.vault.cachedRead(this.app.vault.getFileByPath(path));
 	} catch (e) {

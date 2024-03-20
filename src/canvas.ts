@@ -23,7 +23,7 @@ export async function getImageNodeContent(
 	basePath: string,
 	node: FileNode
 ): Promise<string> {
-	return getImageContent(basePath, node.file);
+	return getImageContent(node.file);
 }
 
 export interface TextNode {

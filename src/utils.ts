@@ -7,9 +7,11 @@ import {
 	Notice,
 	TAbstractFile,
 	TFile,
+  normalizePath,
 } from "obsidian";
 import { CustomArrayDict } from "obsidian-typings";
 import { SUPABASE_ANON_KEY, SUPABASE_URL } from "./constants";
+const PATH_SEPARATOR = '/';
 
 // Utility function to safely get a TFile by path
 export function getFileByPath(filePath: string, app: App): TFile {
@@ -93,7 +95,8 @@ export async function getImageContent(
 	basePath: string,
 	path: string
 ): Promise<string> {
-	const contents = await this.app.vault.readBinary(`${basePath}/${path}`);
+  try {
+	const contents = await this.app.vault.readBinary(normalizePath([basePath, path].join(PATH_SEPARATOR)));
 	const buffedInput = Buffer.from(contents).toString("base64");
 
 	// use the file extension to determine the mime type
@@ -106,6 +109,10 @@ export async function getImageContent(
 
 	// default to png
 	return `data:image/png;base64,${buffedInput}`;
+  } catch (e) {
+    console.debug('Error reading image file', normalizePath([basePath, path].join(PATH_SEPARATOR)), e);
+    return '';
+  }
 }
 
 export function isImage(path: string): boolean {
@@ -141,17 +148,23 @@ export async function getWordContents(
 	basePath: string,
 	path: string
 ): Promise<string | null> {
+  try {
 	const extractor = new WordExtractor();
-	const extracted = await extractor.extract(`${basePath}/${path}`);
+	const extracted = await extractor.extract(normalizePath([basePath, path].join(PATH_SEPARATOR)));
 	return extracted.getBody();
+  }
+  catch (e) {
+    console.debug('Error reading word file', normalizePath([basePath, path].join(PATH_SEPARATOR)), e);
+    return null;
+  }
 }
 
 export async function getFileContents(basePath: string, path: string): Promise<string | null> {
-	const contents = await this.app.vault.read(`${basePath}/${path}`);
 	try {
+    const contents = await this.app.vault.read(normalizePath([basePath, path].join(PATH_SEPARATOR)));
 		return new TextDecoder("utf8", { fatal: true }).decode(contents);
 	} catch (e) {
-		console.debug(e);
+		console.debug('Error reading file', normalizePath([basePath, path].join(PATH_SEPARATOR)), e);
 		return null;
 	}
 }

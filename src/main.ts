@@ -331,7 +331,7 @@ export default class CloudAtlasPlugin extends Plugin {
 		const templateFlowFilePath = this.getFlowFilePath(flow);
 		const dataFlowFilePath = this.getFlowdataFilePath(flow);
 
-		const flows = [templateFlowFilePath, dataFlowFilePath];
+		const flows = [templateFlowFilePath, dataFlowFilePath].filter(Boolean);;
 
 		const payload = await this.combineFlows(flows, null);
 
@@ -762,10 +762,10 @@ export default class CloudAtlasPlugin extends Plugin {
 		);
 		const inputNodes = findInputNode(canvasContent.nodes);
 		if (!inputNodes) {
-			new Notice("Could not find User(Red) node.");
+			new Notice("Could not find Input(Red) node.");
 			return;
 		} else if (inputNodes.length > 1) {
-			new Notice("Found multiple User(Red) nodes, only one is allowed.");
+			new Notice("Found multiple Input(Red) nodes, only one is allowed.");
 			return;
 		}
 		const inputNode = inputNodes[0];

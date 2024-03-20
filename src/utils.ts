@@ -96,7 +96,7 @@ export async function getImageContent(
 	path: string
 ): Promise<string> {
   try {
-	const contents = await this.app.vault.readBinary(normalizePath([basePath, path].join(PATH_SEPARATOR)));
+	const contents = await this.app.vault.readBinary(this.app.vault.getFileByPath(path));
 	const buffedInput = Buffer.from(contents).toString("base64");
 
 	// use the file extension to determine the mime type
@@ -110,7 +110,7 @@ export async function getImageContent(
 	// default to png
 	return `data:image/png;base64,${buffedInput}`;
   } catch (e) {
-    console.debug('Error reading image file', normalizePath([basePath, path].join(PATH_SEPARATOR)), e);
+    console.debug('Error reading image file', path, e);
     return '';
   }
 }
@@ -161,10 +161,9 @@ export async function getWordContents(
 
 export async function getFileContents(basePath: string, path: string): Promise<string | null> {
 	try {
-    const contents = await this.app.vault.read(normalizePath([basePath, path].join(PATH_SEPARATOR)));
-		return new TextDecoder("utf8", { fatal: true }).decode(contents);
+    return await this.app.vault.cachedRead(this.app.vault.getFileByPath(path));
 	} catch (e) {
-		console.debug('Error reading file', normalizePath([basePath, path].join(PATH_SEPARATOR)), e);
+		console.debug('Error reading file', path, e);
 		return null;
 	}
 }

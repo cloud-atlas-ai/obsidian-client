@@ -41,6 +41,7 @@ export interface FlowConfig {
 	exclusionPatterns: string[];
 	frontMatterOffset: number;
 	llmOptions: LlmOptions;
+	additional_context: AdditionalContext;
 	// Add other flow properties as needed
 }
 

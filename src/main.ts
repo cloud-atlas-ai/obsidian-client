@@ -295,13 +295,10 @@ export default class CloudAtlasPlugin extends Plugin {
 
 		if (metadata?.frontmatter) {
 			const frontmatter = metadata?.frontmatter;
-			const frontmatterKeys = Object.keys(metadata?.frontmatter);
-			frontmatterKeys
-				.filter((key) => key.startsWith("ca-url"))
-				.map((key) => {
-					const k = key.replace("ca-url", "").trim();
-					additionalContext[k] = frontmatter[key];
-				});
+			const links = frontmatter["ca-url"];
+			links.map((link: string) => {
+				additionalContext[link] = link;
+			});
 
 			console.debug(additionalContext);
 		}

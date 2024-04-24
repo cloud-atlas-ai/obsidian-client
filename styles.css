@@ -72,7 +72,31 @@ table.cloud-atlas-flow-table td.cloud-atlas-flow-td-quarter {
 }
 
 .cloud-atlas-flowdata-file::before {
-	content: "CloudAtlas flow Data";
+	content: "CloudAtlas flow data";
+	display: block;
+	font-size: var(--font-larger);
+	color: var(--foreground-secondary-alt);
+	background-color: var(--background-secondary-alt);
+	padding: var(--size-4-3);
+	border-top: 2px solid var(--text-accent-hover);
+	border-bottom: 2px solid var(--text-accent-hover);
+	margin-bottom: var(--size-4-3);
+}
+
+.cloud-atlas-flowrun-file::before {
+	content: "CloudAtlas flow run";
+	display: block;
+	font-size: var(--font-larger);
+	color: var(--foreground-secondary-alt);
+	background-color: var(--background-secondary-alt);
+	padding: var(--size-4-3);
+	border-top: 2px solid var(--text-accent-hover);
+	border-bottom: 2px solid var(--text-accent-hover);
+	margin-bottom: var(--size-4-3);
+}
+
+.cloud-atlas-flowdeploy-file::before {
+	content: "CloudAtlas flow deploy";
 	display: block;
 	font-size: var(--font-larger);
 	color: var(--foreground-secondary-alt);
@@ -126,6 +150,10 @@ table.cloud-atlas-flow-table td.cloud-atlas-flow-td-quarter {
 	writing-mode: vertical-rl;
 	transform: rotate(180deg);
 	font-size: 1.2em;
+}
+
+.rotate {
+	animation: rotation 2s infinite linear;
 }
 
 .cloud-atlas-flow-canvas

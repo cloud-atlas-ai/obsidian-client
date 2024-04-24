@@ -1,4 +1,4 @@
-import { ItemView, WorkspaceLeaf, setIcon } from "obsidian";
+import { ItemView, Notice, WorkspaceLeaf, setIcon } from "obsidian";
 import CloudAtlasPlugin from "./main";
 
 export const CA_VIEW_TYPE = "flow-view";
@@ -63,6 +63,20 @@ export class FlowView extends ItemView {
 			uploadBtn.addEventListener("click", async () => {
 				// console.debug(`Uploading flow ${flow}`);
 				await this.plugin.uploadFlow(flow);
+			});
+			const deployBtn = td2.createEl("button", { text: "Deploy" });
+			setIcon(deployBtn, "cloud-cog");
+			deployBtn.addClass("cloud-atlas-flow-btn-primary");
+			deployBtn.addEventListener("click", async () => {
+				// console.debug(`Uploading flow ${flow}`);
+				setIcon(deployBtn, "cog");
+				deployBtn.addClass("rotate");
+				const project_url = await this.plugin.deployFlow(flow);
+				deployBtn.removeClass("rotate");
+				setIcon(deployBtn, "cloud-cog");
+				new Notice(
+					`Flow has been deployed to ${project_url}, it should be available in a few minutes`
+				);
 			});
 			const flowNameTd = tr.createEl("td");
 			flowNameTd.addClass("cloud-atlas-flow-td-half");

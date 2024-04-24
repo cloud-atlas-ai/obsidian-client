@@ -341,6 +341,32 @@ export default class CloudAtlasPlugin extends Plugin {
 		return respJson;
 	};
 
+	deployFlow = async (flow: string): Promise<string> => {
+		await this.uploadFlow(flow);
+		const apiUrl = this.apiUrl();
+		const response = await fetch(`${apiUrl}/deploy`, {
+			headers: {
+				"x-api-key": this.settings.apiKey,
+				"Content-Type": "application/json",
+			},
+			method: "POST",
+			body: JSON.stringify({ flow }),
+		});
+
+		const project_url = await response.text();
+
+		await this.createFolder("CloudAtlas/deploy-info");
+
+		await this.app.vault.create(
+			`CloudAtlas/deploy-info/${flow}.flowdeploy.md`,
+			JSON.stringify({
+				project_url,
+			})
+		);
+
+		return project_url;
+	};
+
 	uploadFlow = async (flow: string) => {
 		const templateFlowFilePath = this.getFlowFilePath(flow);
 		const dataFlowFilePath = this.getFlowdataFilePath(flow);
@@ -616,13 +642,17 @@ export default class CloudAtlasPlugin extends Plugin {
 		return "";
 	};
 
+	apiUrl = () => {
+		const url = this.settings.previewMode
+			? "https://dev-api.cloud-atlas.ai"
+			: "https://api.cloud-atlas.ai";
+		return this.settings.developmentMode ? "http://localhost:8787" : url;
+	};
+
 	caApiFetch = async (payload: Payload): Promise<string> => {
 		payload.version = "V2";
 		console.debug(payload);
-		let url = this.settings.previewMode
-			? "https://dev-api.cloud-atlas.ai/run"
-			: "https://api.cloud-atlas.ai/run";
-		url = this.settings.developmentMode ? "http://localhost:8787/run" : url;
+		const url = `${this.apiUrl()}/run`;
 		const response = await fetch(url, {
 			headers: {
 				"x-api-key": this.settings.apiKey,
@@ -911,6 +941,8 @@ export default class CloudAtlasPlugin extends Plugin {
 							view.dom.classList.add("cloud-atlas-flowdata-file");
 						} else if (filePath.endsWith(".flowrun.md")) {
 							view.dom.classList.add("cloud-atlas-flowrun-file");
+						} else if (filePath.endsWith(".flowdeploy.md")) {
+							view.dom.classList.add("cloud-atlas-flowdeploy-file");
 						} else {
 							view.dom.classList.remove(
 								"cloud-atlas-flow-file",

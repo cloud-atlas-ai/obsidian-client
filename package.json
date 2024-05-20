@@ -14,7 +14,7 @@
   "license": "TBD",
   "devDependencies": {
     "@types/js-yaml": "^4.0.9",
-    "@types/node": "^20.11.25",
+    "@types/node": "^20.12.12",
     "@types/obsidian-typings": "github:Fevol/obsidian-typings",
     "@types/uuid": "^9.0.8",
     "@types/word-extractor": "^1.0.5",

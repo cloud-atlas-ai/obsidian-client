@@ -55,11 +55,51 @@ Each flow is like having a personal assistant within Obsidian, helping you manag
 
 ## Cloud Atlas Plugin Usage Guide
 
+We believe that good context is key to leveraging LLMs effectively. We offer multiple modes for using Cloud Atlas in Obsidian:
+
+- **Canvas Flow Mode**: Use the interactive canvas to set up and run flows with components like input, context, and user prompts.
+- **Markdown Notes Mode**: Run flows directly on Markdown files with support for context selection or using the current file as context.
+- **Interactive Panel Mode**: Send a prompt along with selected context.
+
 This  will walk you through creating, running, and customizing your personal flows. Let's get started.
+
+## Canvas Flow Mode
+
+The Canvas Flow mode in the Cloud Atlas plugin enhances your Obsidian experience by enabling a visual representation of your workflows. By creating a Canvas in Obsidian, you can structurally map out your notes, ideas, and tasks, and leverage Cloud Atlas's AI capabilities to interact with them more intuitively.
+
+### Features
+
+- **Visual Workflow Mapping**: Easily map out your workflow in a visual canvas and define how each part of your notes interacts with each other.
+- **AI-Powered Processing**: Cloud Atlas AI analyzes your canvas flow, providing insights, summaries, or any other AI-powered feature directly within your canvas.
+- **Seamless Integration**: The Canvas Flow mode works hand-in-hand with other Cloud Atlas features, ensuring a smooth and efficient workflow within Obsidian.
+
+### How to Use Canvas Flow Mode
+
+1. Create a new `.flow` canvas.
+2. Add nodes to your canvas, which can be of different types such as Card, Note from Vault, and Media from Vault.
+3. Assign colors to your nodes to indicate their types:
+   - Red: Input
+   - Orange: User Prompt
+   - Blue: System
+   - Green: Context
+4. Use the `Run Canvas Flow` command to execute the flow, which will pass data between nodes and utilize the Cloud Atlas AI to process and generate content.
+
+### Example Usage
+
+You can create a Canvas Flow to summarize a meeting by:
+
+1. Adding a Note to your canvas with the meeting transcript. Color it Red to indicate it as an input.
+2. Adding a Card colored Blue for the System Instructions, telling the LLM to act as a summarizer.
+3. Adding a Card colored Orange for the User Prompt, asking the LLM to summarize the meeting.
+4. Running the Canvas Flow to get a summarized version of the meeting right within your Obsidian canvas.
+
+We often use Canvas Flows as a Pair Programmer or Assistant while preparing for a presentation based on notes.
+
+## Markdown Notes Mode
 
 ### Step 1: Creating a New Flow
 
-1. **Create a New Flow**: Use the command palette (`Ctrl/Cmd + P`) and type `Create New Flow`. This will create a new `.flow.md` file in the `CloudAtlas` directory.
+1. **Create a New Flow**: Use the command palette (`Ctrl/Cmd + P`) and type `Create New Flow`. This will create a new `.flow` file in the `CloudAtlas` directory.
 
 2. **Name Your Flow**: Follow the naming convention `CloudAtlas/<flow name>.flow.md` for markdown notes mode.
 
@@ -82,7 +122,6 @@ This  will walk you through creating, running, and customizing your personal flo
     - `exclusionPattern`: Patterns for notes to exclude, useful for omitting sensitive data.
 
 4. **Running Flows**:
-
 
 ### Step 2: Running Your Flow
 
@@ -113,6 +152,41 @@ This  will walk you through creating, running, and customizing your personal flo
 3. **Re-run Your Flow**: After customizing, go back to any note and run the `demo` flow again. You'll see how the customizations impact the flow's output.
 
 That's it! You've now learned how to create, run, and customize your own flows in Obsidian using the Cloud Atlas plugin. Go wild!
+
+### Example Usage
+
+We often use Markdown Notes Mode to prepare for a day:
+
+1. Create a flow named `Morning Routine` that includes a list of tasks to complete.
+2. Customize the flow with a `Morning Routine.flowdata` file that includes additional context about current goals and strengths.
+3. Run the flow on your daily notes (which has your calendar and tasks) to get a pep talk.
+
+We also use it to:
+
+- review a day after it's done, summarizing the day's events and achievements.
+- summarize progress at the end of a week.
+
+### Alpha Features
+
+There are some alpha features we are working on, the most exciting of which is to develop a flow and turn it into a Chrome Extension. This will allow you to run flows on any webpage you visit, making it easier to get information and context from the web. Let us know if you'd like to be a part of the alpha testing.
+
+## Interactive Panel Mode
+
+The Interactive Panel mode is a dedicated panel within Obsidian that allows you to interact with Cloud Atlas in real-time. It enables you to send prompts to Cloud Atlas and receive responses directly within Obsidian.
+
+### How to Use
+
+1. Open the Interactive Panel by clicking on the Cloud Atlas panel icon in the Obsidian ribbon. This will display the Cloud Atlas Interactive Mode panel.
+2. Enter your prompt in the provided textbox. This could be any question or command you wish to send to Cloud Atlas.
+3. Optionally, you can attach notes from your vault to provide additional context to Cloud Atlas. Click the '+' button to attach the currently active note.
+4. Once you're ready, click the 'Send to LLM' button to submit your prompt to Cloud Atlas.
+5. The panel will display a loading indicator while waiting for a response.
+6. Once Cloud Atlas processes your prompt, the response will be displayed in the panel.
+7. You can copy the response to your clipboard using the 'Copy to Clipboard' button, which appears after a response is received.
+
+### Example Usage
+
+We often use the Interactive Panel Mode to have a Q&A about the contents of a specific note.
 
 ## Manually installing the plugin
 

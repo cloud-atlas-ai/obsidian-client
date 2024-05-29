@@ -112,46 +112,66 @@ export class InteractivePanel extends ItemView {
       }
     });
 
+    // Update the sendButton event listener in the onOpen method
     sendButton.addEventListener('click', async () => {
-      const payload: Payload = {
-        user: {
-          user_prompt: prompt.value,
-          input: "See Additional Context and Respond to Prompt",
-          additional_context: {},
-        },
-        system: null, // Assuming there's no system part needed in the payload
-				options: {
-					generate_embeddings: this.settings.generateEmbeddings,
-					entity_recognition: this.settings.entityRecognition,
-					wikify: this.settings.wikify,
-				},
-				provider: this.settings.useOpenAi ? "openai" : "azureai",
-				llmOptions: {
-					temperature: this.settings.llmOptions.temperature,
-					max_tokens: this.settings.llmOptions.max_tokens,
-				},
-				requestId: new ShortUniqueId({ length: 10 }).rnd(),
-      };
-
-      // Parse through the `attachedFiles` to make the `additional_context`
-      payload.user.additional_context = {}; // Initialize additional_context as an empty object
-
-      for (const filePath of this.attachedFiles) {
-        const fileContent = await this.plugin.readAndFilterContent(filePath, []); // Wait for the Promise to resolve
-        if (fileContent !== null) {
-          payload.user.additional_context[filePath] = fileContent;
-        }
+      if (prompt.value.trim() === "") {
+        new Notice("Please enter a prompt before sending.");
+        return;
       }
-
-      // Send the payload to Cloud Atlas (The actual sending logic is abstracted)
-      console.log("Payload to be sent to Cloud Atlas", payload);
-
+      await this.handleSendClick(prompt.value);
     });
+  }
 
-    container.createEl('br');
-    // Response area
-    const responseContainer = container.createDiv('response-container');
-    container.createEl('br');
+  private async handleSendClick(promptValue: string) {
+    // Build the payload using the promptValue and attached files
+    const payload: Payload = {
+      user: {
+        user_prompt: promptValue,
+        input: "See Additional Context and Respond to Prompt",
+        additional_context: {},
+      },
+      system: null,
+      options: {
+        generate_embeddings: this.settings.generateEmbeddings,
+        entity_recognition: this.settings.entityRecognition,
+        wikify: this.settings.wikify,
+      },
+      provider: this.settings.useOpenAi ? "openai" : "azureai",
+      llmOptions: {
+        temperature: this.settings.llmOptions.temperature,
+        max_tokens: this.settings.llmOptions.max_tokens,
+      },
+      requestId: new ShortUniqueId({ length: 10 }).rnd(),
+    };
+
+    // Add contents from attached files to the payload's additional context
+    if (!payload.user.additional_context) {
+      payload.user.additional_context = {};
+    }
+    for (const filePath of this.attachedFiles) {
+      const fileContent = await this.plugin.readAndFilterContent(filePath, []);
+      if (fileContent !== null) {
+        payload.user.additional_context[filePath] = fileContent;
+      }
+    }
+
+    // Send the payload to the Cloud Atlas API
+    try {
+      const responseText = await this.plugin.caApiFetch(payload);
+      this.renderResponse(responseText);
+      console.log("Received response from Cloud Atlas:", responseText);
+    } catch (error) {
+      console.error("Failed to fetch response from Cloud Atlas:", error);
+      new Notice("Failed to send payload to Cloud Atlas. Check the console for more details.");
+    }
+  }
+
+  private renderResponse(responseText: string) {
+    const responseContainer = this.containerEl.querySelector('.response-container');
+    if (responseContainer) {
+      responseContainer.empty();
+      responseContainer.createEl('p', { text: responseText });
+    }
   }
 
 

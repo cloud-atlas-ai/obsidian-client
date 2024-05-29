@@ -211,3 +211,12 @@ table.cloud-atlas-flow-table td.cloud-atlas-flow-td-quarter {
 .canvas-node:not(.is-editing) .canvas-node-container:has(.ca-context)::before {
 	content: "Context";
 }
+
+.cloud-atlas-interactive-copy-button {
+  margin-top: 10px;
+  background-color: var(--interactive-accent);
+  border: none;
+  padding: 5px 10px;
+  border-radius: 3px;
+  cursor: pointer;
+}

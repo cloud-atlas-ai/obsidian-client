@@ -1,22 +1,51 @@
 import { ItemView, Notice, WorkspaceLeaf, setIcon } from "obsidian";
-import CloudAtlasPlugin from "./main";
+import CloudAtlasPlugin  from "./main";
 
-import CodeMirror from "codemirror";
 import { Payload } from "./interfaces";
 import ShortUniqueId from "short-unique-id";
 
 export const INTERACTIVE_PANEL_TYPE = "interactive-panel";
 
+let noticeTimeout: NodeJS.Timeout;
+
+const animateNotice = (notice: Notice) => {
+	let message = notice.noticeEl.innerText;
+	const dots = [...message].filter((c) => c === ".").length;
+	if (dots == 0) {
+		message = message.replace("    ", " .  ");
+	} else if (dots == 1) {
+		message = message.replace(" .  ", " .. ");
+	} else if (dots == 2) {
+		message = message.replace(" .. ", " ...");
+	} else if (dots == 3) {
+		message = message.replace(" ...", "    ");
+	}
+	notice.setMessage(message);
+	noticeTimeout = setTimeout(() => animateNotice(notice), 500);
+};
+
 export class InteractivePanel extends ItemView {
   plugin: CloudAtlasPlugin;
   attachedFiles: Set<string>;
   settings: import("./settings").CloudAtlasPluginSettings;
+  responseContainer: HTMLDivElement;
+  responsePre: HTMLPreElement;
+  responseCode: HTMLElement;
+  loadingIndicator: HTMLDivElement;
 
   constructor(leaf: WorkspaceLeaf, plugin: CloudAtlasPlugin) {
     super(leaf);
     this.plugin = plugin;
     this.settings = this.plugin.settings;
     this.attachedFiles = new Set(); // Initialize the Set
+  }
+
+  setLoading(loading: boolean) {
+    if (loading) {
+      this.loadingIndicator.style.display = "block";
+    } else {
+      this.loadingIndicator.style.display = "none";
+    }
   }
 
   getViewType() {
@@ -112,6 +141,12 @@ export class InteractivePanel extends ItemView {
       }
     });
 
+    // Create the loading indicator
+    this.loadingIndicator = container.createDiv({ cls: 'loading-indicator' });
+    setIcon(this.loadingIndicator, 'sync');
+    this.loadingIndicator.setText(' Waiting for response');
+    this.setLoading(false); // Hide it by default
+
     // Update the sendButton event listener in the onOpen method
     sendButton.addEventListener('click', async () => {
       if (prompt.value.trim() === "") {
@@ -155,22 +190,47 @@ export class InteractivePanel extends ItemView {
       }
     }
 
-    // Send the payload to the Cloud Atlas API
+    this.setLoading(true);
+    const notice = new Notice(`Running Interactive flow ...`, 0);
+		animateNotice(notice);
+
     try {
       const responseText = await this.plugin.caApiFetch(payload);
+      this.setLoading(false);
+      notice.hide();
+      clearTimeout(noticeTimeout);
       this.renderResponse(responseText);
-      console.log("Received response from Cloud Atlas:", responseText);
     } catch (error) {
+      this.setLoading(false);
+      notice.hide();
       console.error("Failed to fetch response from Cloud Atlas:", error);
       new Notice("Failed to send payload to Cloud Atlas. Check the console for more details.");
     }
   }
 
   private renderResponse(responseText: string) {
-    const responseContainer = this.containerEl.querySelector('.response-container');
-    if (responseContainer) {
-      responseContainer.empty();
-      responseContainer.createEl('p', { text: responseText });
+    if (!this.responseContainer) {
+      this.responseContainer = this.containerEl.createDiv({ cls: 'response-container' });
+      this.responseContainer.createEl('h4', { text: 'Response' });
+
+      this.responsePre = this.responseContainer.createEl('pre', { cls: 'scrollable-response' });
+      this.responsePre.style.maxHeight = '300px'; // Set a max height
+      this.responsePre.style.overflowY = 'auto'; // Enable vertical scrolling
+      this.responseCode = this.responsePre.createEl('code', { text: responseText });
+      this.responseCode.addClass('language-markdown');
+      this.responseCode.setAttribute('style', 'white-space: pre-wrap;');
+
+      const copyButton = this.responseContainer.createEl('button', { text: 'Copy to Clipboard', cls: 'copy-response-button cloud-atlas-interactive-copy-button' });
+      copyButton.addEventListener('click', () => {
+        navigator.clipboard.writeText(responseText).then(() => {
+          new Notice('Response copied to clipboard.');
+        }, (err) => {
+          console.error('Could not copy text: ', err);
+          new Notice('Failed to copy response to clipboard.');
+        });
+      });
+    } else {
+      this.responseCode.setText(responseText);
     }
   }
 

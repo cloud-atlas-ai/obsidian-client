@@ -220,3 +220,38 @@ table.cloud-atlas-flow-table td.cloud-atlas-flow-td-quarter {
   border-radius: 3px;
   cursor: pointer;
 }
+
+.ca-attach-note-button {
+  background-color: var(--interactive-accent);
+  border: none;
+  padding: 5px 10px;
+  border-radius: 3px;
+  cursor: pointer;
+  &:hover::before {
+    content: "Add current note to the prompt ";
+  }
+}
+
+.ca-interactive-prompt-textbox {
+  width: 100%;
+  border: 1px solid var(--interactive-accent);
+  height: auto;
+  vertical-align: text-top;
+  min-height: 100px;
+  white-space: normal;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+}
+
+.ca-a-interactive-copy-button {
+  margin-left: 10px;
+}
+
+.ca-scrollable-response {
+  max-height: '300px';
+  overflow-y: 'auto';
+}
+
+.ca-response-code {
+  white-space: pre-wrap;
+}

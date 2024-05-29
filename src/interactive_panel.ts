@@ -32,6 +32,7 @@ export class InteractivePanel extends ItemView {
   responsePre: HTMLPreElement;
   responseCode: HTMLElement;
   loadingIndicator: HTMLDivElement;
+  copyButton: HTMLButtonElement;
 
   constructor(leaf: WorkspaceLeaf, plugin: CloudAtlasPlugin) {
     super(leaf);
@@ -62,98 +63,119 @@ export class InteractivePanel extends ItemView {
 
   createUserPromptTextbox() {
     // Implement the logic for creating the user prompt textbox here.
-    const promptTextbox = document.createElement('input');
-    promptTextbox.type = 'text';
+    const promptTextbox = document.createElement('textarea');
     promptTextbox.placeholder = 'Enter your prompt here...';
-    promptTextbox.classList.add('prompt-textbox');
+    promptTextbox.classList.add('ca-interactive-prompt-textbox');
     this.containerEl.appendChild(promptTextbox);
     return promptTextbox;
   }
 
-  updateAttachedFilesList() {
-    const attachedFilesList = this.containerEl.children[1].querySelector('.attached-files-list');
+  createAttachedFilesList() {
+    const attachedFilesList = this.containerEl.createDiv({ cls: 'attached-notes-list' });
+    const listHeader = attachedFilesList.createEl('h4', { text: 'Attached Notes' });
+    listHeader.style.marginBottom = '1em';
+    const filesList = attachedFilesList.createEl('ul');
+    filesList.style.height = '200px'; // Set a fixed height
+    filesList.style.overflowY = 'auto'; // Make it scrollable
+    return filesList;
+  }
 
-    if (attachedFilesList !== null) {
-      attachedFilesList.empty();
-      attachedFilesList.createEl('h4', { text: 'Attached Files' });
-      if (this.attachedFiles.size === 0) {
-        attachedFilesList.createEl('p', { text: 'No files attached.' });
-      } else {
-        for (const file of this.attachedFiles) {
-          attachedFilesList.createEl('li', { text: file });
-          // Add a button to remove the file from the attachedFiles set
-          const removeButton = attachedFilesList.createEl('button', {
-            text: 'Remove',
-            cls: 'remove-button',
-          });
-          removeButton.addEventListener('click', () => {
-            this.attachedFiles.delete(file);
-            this.updateAttachedFilesList();
-          });
-        }
-      }
+  // Function to update the attached files list
+  updateAttachedFilesList(filesList: HTMLElement) {
+    filesList.empty();
+    if (this.attachedFiles.size === 0) {
+      filesList.createEl('li', { text: 'No notes attached.' });
+    } else {
+      this.attachedFiles.forEach(file => {
+        const listItem = filesList.createEl('li', { text: file });
+        const removeButton = listItem.createEl('button', {
+          text: 'Remove',
+          cls: 'remove-button',
+        });
+        removeButton.onClickEvent(() => {
+          this.attachedFiles.delete(file);
+          this.updateAttachedFilesList(filesList);
+        });
+      });
     }
   }
 
-
+  // Updated onOpen method
   async onOpen() {
     const container = this.containerEl.children[1];
-
     container.empty();
-    container.createEl("h4", { text: "Cloud Atlas Interactive mode" });
+    container.createEl('h4', { text: 'Cloud Atlas Interactive Mode' });
 
     // User prompt text box
     const prompt = this.createUserPromptTextbox();
     container.appendChild(prompt);
 
-    // Action button to send
+    // Attach button
+    const attachButton = container.createEl('button', {
+      cls: 'ca-attach-note-button',
+      text: '+',
+    });
+
+    container.createDiv();
+
+    // Send button
     const sendButton = container.createEl('button', {
       cls: 'send-button',
-      text: 'Send',
+      text: 'Send to LLM',
     });
 
-    container.createEl('br');
+    // Attached files list
+    const attachedFilesList = this.createAttachedFilesList();
+    this.updateAttachedFilesList(attachedFilesList);
 
-    // Attach button to refer to other notes or file system
-    const attachButton = container.createEl('button', {
-      cls: 'attach-button',
-      text: 'Attach',
-    });
+    // Copy to Clipboard button and Response header positioning
+    const responseHeader = container.createEl('h4', { text: 'Response' });
+    this.copyButton = container.createEl('button', { text: 'Copy to Clipboard', cls: 'ca-a-interactive-copy-button' });
+    this.copyButton.hide();
+    responseHeader.insertAdjacentElement('afterend', this.copyButton);
 
-    //display a list of attached files
-    container.createEl('br');
-    const attachedFilesList = container.createEl('div', {
-      cls: 'attached-files-list',
-    });
-    attachedFilesList.createEl('h4', { text: 'Attached Files' });
-    this.updateAttachedFilesList();
-
-    attachButton.addEventListener('click', () => {
-      // Grab the handle to the currently open file, add it to the attachedFiles set
-      const activeFile = this.app.workspace.getActiveFile();
-      if (activeFile) {
-        this.attachedFiles.add(activeFile.path);
-        new Notice(`Attached file: ${activeFile.path}`);
-        //update the list of attached files
-        this.updateAttachedFilesList();
-      } else {
-        new Notice("No file is currently open.");
+    // Listener for the Copy to Clipboard button
+    this.copyButton.onClickEvent(() => {
+      if (this.responseCode) {
+        navigator.clipboard.writeText(this.responseCode.innerText).then(() => {
+          new Notice('Response copied to clipboard.');
+        }, (err) => {
+          console.error('Could not copy text: ', err);
+          new Notice('Failed to copy response to clipboard.');
+        });
       }
     });
 
-    // Create the loading indicator
+    // Response container
+    this.responseContainer = container.createDiv({ cls: 'response-container' });
+    this.responsePre = this.responseContainer.createEl('pre', { cls: 'ca-scrollable-response' });
+    this.responseCode = this.responsePre.createEl('code');
+    this.responseCode.addClass('ca-response-code');
+
+    // Loading indicator
     this.loadingIndicator = container.createDiv({ cls: 'loading-indicator' });
     setIcon(this.loadingIndicator, 'sync');
     this.loadingIndicator.setText(' Waiting for response');
-    this.setLoading(false); // Hide it by default
+    this.setLoading(false); // Initially hidden
 
-    // Update the sendButton event listener in the onOpen method
-    sendButton.addEventListener('click', async () => {
+    // Event listeners
+    sendButton.onClickEvent(async () => {
       if (prompt.value.trim() === "") {
         new Notice("Please enter a prompt before sending.");
         return;
       }
       await this.handleSendClick(prompt.value);
+    });
+
+    attachButton.onClickEvent(() => {
+      const activeFile = this.app.workspace.getActiveFile();
+      if (activeFile) {
+        this.attachedFiles.add(activeFile.path);
+        new Notice(`Attached file: ${activeFile.path}`);
+        this.updateAttachedFilesList(attachedFilesList);
+      } else {
+        new Notice("No file is currently open.");
+      }
     });
   }
 
@@ -200,6 +222,7 @@ export class InteractivePanel extends ItemView {
       notice.hide();
       clearTimeout(noticeTimeout);
       this.renderResponse(responseText);
+      this.copyButton.show();
     } catch (error) {
       this.setLoading(false);
       notice.hide();
@@ -209,29 +232,7 @@ export class InteractivePanel extends ItemView {
   }
 
   private renderResponse(responseText: string) {
-    if (!this.responseContainer) {
-      this.responseContainer = this.containerEl.createDiv({ cls: 'response-container' });
-      this.responseContainer.createEl('h4', { text: 'Response' });
-
-      this.responsePre = this.responseContainer.createEl('pre', { cls: 'scrollable-response' });
-      this.responsePre.style.maxHeight = '300px'; // Set a max height
-      this.responsePre.style.overflowY = 'auto'; // Enable vertical scrolling
-      this.responseCode = this.responsePre.createEl('code', { text: responseText });
-      this.responseCode.addClass('language-markdown');
-      this.responseCode.setAttribute('style', 'white-space: pre-wrap;');
-
-      const copyButton = this.responseContainer.createEl('button', { text: 'Copy to Clipboard', cls: 'copy-response-button cloud-atlas-interactive-copy-button' });
-      copyButton.addEventListener('click', () => {
-        navigator.clipboard.writeText(responseText).then(() => {
-          new Notice('Response copied to clipboard.');
-        }, (err) => {
-          console.error('Could not copy text: ', err);
-          new Notice('Failed to copy response to clipboard.');
-        });
-      });
-    } else {
       this.responseCode.setText(responseText);
-    }
   }
 
 

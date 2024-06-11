@@ -125,11 +125,11 @@ We often use Canvas Flows as a Pair Programmer or Assistant while preparing for 
 
 ### Step 2: Running Your Flow
 
-1. **Open Any Note**: With your flow created, open any note in your vault where you want to run the flow.
+1. **Open Any Note**: With your flow created, open any note in your vault where you want to run the flow. The note, flowdata (see below), backlinks, and forward links will be used as context for the flow.
 2. **Execute the Flow**:
    1. **From the Command Palette:** After creating or updating a flow, you can register it as a command. Go to the Settings and register it as a command. This will allow you to run the flow from the command palette.
    2. **From the Cloud Atlas view:** You can also run flows from the Cloud Atlas view by clicking on the Play button next to the flow name.
-3. **View the Results**: Cloud Atlas processes the note and appends or replaces the content based on your flow settings. The response from Cloud Atlas will appear in your note.
+3. **View the Results**: Cloud Atlas processes the flow and adds the response at the cursor or replaces the selected content.
 
 ### Step 3: Customizing Your Flow
 

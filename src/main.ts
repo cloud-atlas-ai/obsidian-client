@@ -70,6 +70,7 @@ import { Extension } from "@codemirror/state";
 import { randomName } from "./namegenerator";
 import { azureAiFetch, openAiFetch } from "./byollm";
 import { FlowView, CA_VIEW_TYPE } from "./flow_view";
+import { INTERACTIVE_PANEL_TYPE, InteractivePanel } from "./interactive_panel";
 
 let noticeTimeout: NodeJS.Timeout;
 
@@ -985,12 +986,41 @@ export default class CloudAtlasPlugin extends Plugin {
 		}
 	}
 
+  async activateInteractivePanel(open:boolean) {
+		const { workspace } = this.app;
+
+		let leaf: WorkspaceLeaf | null = null;
+		const leaves = workspace.getLeavesOfType(INTERACTIVE_PANEL_TYPE);
+
+		if (leaves.length > 0) {
+			// A leaf with our view already exists, use that
+			leaf = leaves[0];
+			if (open) {
+				workspace.revealLeaf(leaf);
+			}
+		} else {
+			// Our view could not be found in the workspace, create a new leaf
+			// in the right sidebar for it
+			leaf = workspace.getRightLeaf(false);
+			await leaf?.setViewState({ type: INTERACTIVE_PANEL_TYPE, active: true });
+		}
+
+  }
+
 	async onload() {
 		console.debug("Entering onLoad");
 
 		this.addRibbonIcon("workflow", "Cloud Atlas flows", () => {
 			try {
 				this.activateView(true);
+			} catch (e) {
+				console.debug(e);
+			}
+		});
+
+    this.addRibbonIcon("cloud-cog", "Cloud Atlas panel", () => {
+			try {
+				this.activateInteractivePanel(true);
 			} catch (e) {
 				console.debug(e);
 			}
@@ -1060,6 +1090,7 @@ export default class CloudAtlasPlugin extends Plugin {
 		});
 
 		this.registerView(CA_VIEW_TYPE, (leaf) => new FlowView(leaf, this));
+    this.registerView(INTERACTIVE_PANEL_TYPE, (leaf) => new InteractivePanel(leaf, this));
 		this.addSettingTab(new CloudAtlasGlobalSettingsTab(this.app, this));
 	}
 

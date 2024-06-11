@@ -296,8 +296,8 @@ export default class CloudAtlasPlugin extends Plugin {
 
 		if (metadata?.frontmatter) {
 			const frontmatter = metadata?.frontmatter;
-			const links = frontmatter["ca-url"];
-			links.map((link: string) => {
+			const links = frontmatter["ca-url"];//handle ca-url being undefined
+			links && links.map((link: string) => {
 				additionalContext[link] = link;
 			});
 

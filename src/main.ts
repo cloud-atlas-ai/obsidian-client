@@ -134,7 +134,11 @@ export default class CloudAtlasPlugin extends Plugin {
 					entity_recognition: this.settings.entityRecognition,
 					wikify: this.settings.wikify,
 				},
-				provider: this.settings.useOpenAi ? "openai" : "azureai",
+				provider: this.settings.useOpenAi
+					? "openai"
+					: this.settings.useVertexAi
+					? "vertexai"
+					: "azureai",
 				llmOptions: {
 					temperature: this.settings.llmOptions.temperature,
 					max_tokens: this.settings.llmOptions.max_tokens,
@@ -296,10 +300,11 @@ export default class CloudAtlasPlugin extends Plugin {
 
 		if (metadata?.frontmatter) {
 			const frontmatter = metadata?.frontmatter;
-			const links = frontmatter["ca-url"];//handle ca-url being undefined
-			links && links.map((link: string) => {
-				additionalContext[link] = link;
-			});
+			const links = frontmatter["ca-url"]; //handle ca-url being undefined
+			links &&
+				links.map((link: string) => {
+					additionalContext[link] = link;
+				});
 
 			console.debug(additionalContext);
 		}
@@ -899,7 +904,11 @@ export default class CloudAtlasPlugin extends Plugin {
 					generate_embeddings: this.settings.generateEmbeddings,
 					wikify: this.settings.wikify,
 				},
-				provider: this.settings.useOpenAi ? "openai" : "azureai",
+				provider: this.settings.useOpenAi
+					? "openai"
+					: this.settings.useVertexAi
+					? "vertexai"
+					: "azureai",
 				llmOptions: {
 					temperature: this.settings.llmOptions.temperature,
 					max_tokens: this.settings.llmOptions.max_tokens,
@@ -943,7 +952,9 @@ export default class CloudAtlasPlugin extends Plugin {
 						} else if (filePath.endsWith(".flowrun.md")) {
 							view.dom.classList.add("cloud-atlas-flowrun-file");
 						} else if (filePath.endsWith(".flowdeploy.md")) {
-							view.dom.classList.add("cloud-atlas-flowdeploy-file");
+							view.dom.classList.add(
+								"cloud-atlas-flowdeploy-file"
+							);
 						} else {
 							view.dom.classList.remove(
 								"cloud-atlas-flow-file",
@@ -986,7 +997,7 @@ export default class CloudAtlasPlugin extends Plugin {
 		}
 	}
 
-  async activateInteractivePanel(open:boolean) {
+	async activateInteractivePanel(open: boolean) {
 		const { workspace } = this.app;
 
 		let leaf: WorkspaceLeaf | null = null;
@@ -1002,10 +1013,12 @@ export default class CloudAtlasPlugin extends Plugin {
 			// Our view could not be found in the workspace, create a new leaf
 			// in the right sidebar for it
 			leaf = workspace.getRightLeaf(false);
-			await leaf?.setViewState({ type: INTERACTIVE_PANEL_TYPE, active: true });
+			await leaf?.setViewState({
+				type: INTERACTIVE_PANEL_TYPE,
+				active: true,
+			});
 		}
-
-  }
+	}
 
 	async onload() {
 		console.debug("Entering onLoad");
@@ -1018,7 +1031,7 @@ export default class CloudAtlasPlugin extends Plugin {
 			}
 		});
 
-    this.addRibbonIcon("cloud-cog", "Cloud Atlas panel", () => {
+		this.addRibbonIcon("cloud-cog", "Cloud Atlas panel", () => {
 			try {
 				this.activateInteractivePanel(true);
 			} catch (e) {
@@ -1090,7 +1103,10 @@ export default class CloudAtlasPlugin extends Plugin {
 		});
 
 		this.registerView(CA_VIEW_TYPE, (leaf) => new FlowView(leaf, this));
-    this.registerView(INTERACTIVE_PANEL_TYPE, (leaf) => new InteractivePanel(leaf, this));
+		this.registerView(
+			INTERACTIVE_PANEL_TYPE,
+			(leaf) => new InteractivePanel(leaf, this)
+		);
 		this.addSettingTab(new CloudAtlasGlobalSettingsTab(this.app, this));
 	}
 

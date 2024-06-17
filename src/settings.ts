@@ -11,6 +11,7 @@ export interface CloudAtlasPluginSettings {
 	apiKey: string;
 	advancedOptions: boolean;
 	useOpenAi: boolean;
+	useVertexAi: boolean;
 	previewMode: boolean;
 	entityRecognition: boolean;
 	generateEmbeddings: boolean;
@@ -209,6 +210,28 @@ export class CloudAtlasGlobalSettingsTab extends PluginSettingTab {
 						.setValue(this.plugin.settings.useOpenAi)
 						.onChange(async (value) => {
 							this.plugin.settings.useOpenAi = value;
+							if (value === true) {
+								this.plugin.settings.useVertexAi = false;
+								this.display();
+							}
+							await this.plugin.saveSettings();
+						})
+				);
+
+			new Setting(containerEl)
+				.setName("Use VertexAi (Google Gemini)")
+				.setDesc(
+					"Use Google Gemini, currently Gemini 1.5 Pro with 2m token window"
+				)
+				.addToggle((toggle) =>
+					toggle
+						.setValue(this.plugin.settings.useVertexAi)
+						.onChange(async (value) => {
+							this.plugin.settings.useVertexAi = value;
+							if (value === true) {
+								this.plugin.settings.useOpenAi = false;
+								this.display();
+							}
 							await this.plugin.saveSettings();
 						})
 				);

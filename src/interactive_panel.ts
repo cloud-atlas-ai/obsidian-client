@@ -193,7 +193,7 @@ export class InteractivePanel extends ItemView {
         entity_recognition: this.settings.entityRecognition,
         wikify: this.settings.wikify,
       },
-      provider: this.settings.useOpenAi ? "openai" : "azureai",
+      provider: this.settings.useOpenAi ? "openai" : this.settings.useVertexAi ? "vertexai" : "azureai",
       llmOptions: {
         temperature: this.settings.llmOptions.temperature,
         max_tokens: this.settings.llmOptions.max_tokens,

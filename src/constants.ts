@@ -23,6 +23,7 @@ export const DEFAULT_SETTINGS: CloudAtlasPluginSettings = {
 	canvasResolveLinks: false,
 	canvasResolveBacklinks: false,
 	useOpenAi: false,
+	useVertexAi: false,
 	developmentMode: false,
 	llmOptions: {
 		temperature: 0.8,

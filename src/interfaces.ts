@@ -7,7 +7,7 @@ export interface Payload {
 	user: User;
 	system: string | null;
 	options: Options;
-	provider: "azureai" | "openai";
+	provider: "azureai" | "openai" | "vertexai";
 	llmOptions: LlmOptions;
 	requestId: string;
 	// V1 is the legacy sync version

@@ -18,7 +18,7 @@
     "@types/obsidian-typings": "github:Fevol/obsidian-typings",
     "@types/uuid": "^9.0.8",
     "@types/word-extractor": "^1.0.5",
-    "@typescript-eslint/eslint-plugin": "^7.13.0",
+    "@typescript-eslint/eslint-plugin": "^7.17.0",
     "@typescript-eslint/parser": "^7.12.0",
     "builtin-modules": "^3.3.0",
     "esbuild": "^0.21.5",

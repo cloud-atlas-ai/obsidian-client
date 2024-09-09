@@ -28,7 +28,7 @@
   },
   "dependencies": {
     "@azure/openai": "^1.0.0-beta.12",
-    "openai": "^4.28.4",
+    "openai": "^4.58.1",
     "short-unique-id": "^5.0.3",
     "uuid": "^9.0.1",
     "word-extractor": "^1.0.4"

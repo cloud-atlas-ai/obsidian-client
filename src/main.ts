@@ -1291,6 +1291,10 @@ export default class CloudAtlasPlugin extends Plugin {
 			console.log(`Processing with flow: ${config.flow}`);
 			const result = await this.flowToResponse(file, config.flow);
 
+			// Add source file link to the result
+			const sourceLink = `\n\n---\nSource: [[${file.path}|${file.basename}]]`;
+			const resultWithSourceLink = result + sourceLink;
+
 			// Generate and save output file
 			const outputFilename = this.generateOutputFilename(
 				file,
@@ -1300,12 +1304,12 @@ export default class CloudAtlasPlugin extends Plugin {
 			try {
 				const existingFile = getFileByPath(outputPath, this.app);
 				if (existingFile) {
-					await this.app.vault.modify(existingFile, result);
+					await this.app.vault.modify(existingFile, resultWithSourceLink);
 				} else {
-					await this.app.vault.create(outputPath, result);
+					await this.app.vault.create(outputPath, resultWithSourceLink);
 				}
 			} catch (e) {
-				await this.app.vault.create(outputPath, result);
+				await this.app.vault.create(outputPath, resultWithSourceLink);
 			}
 
 			// Success notice

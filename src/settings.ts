@@ -29,6 +29,11 @@ export interface CloudAtlasPluginSettings {
 		enabled: boolean;
 		defaultFlow: string;
 	};
+	interactivePanel: {
+		resolveLinks: boolean;
+		resolveBacklinks: boolean;
+		expandUrls: boolean;
+	};
 }
 
 export class CloudAtlasGlobalSettingsTab extends PluginSettingTab {
@@ -421,6 +426,45 @@ export class CloudAtlasGlobalSettingsTab extends PluginSettingTab {
 						});
 					});
 			}
+
+			// Interactive Panel Settings
+			containerEl.createEl("h2", { text: "Interactive Panel" });
+			
+			new Setting(containerEl)
+				.setName("Resolve links")
+				.setDesc("Add linked notes as additional context in interactive panel")
+				.addToggle((toggle) =>
+					toggle
+						.setValue(this.plugin.settings.interactivePanel.resolveLinks)
+						.onChange(async (value) => {
+							this.plugin.settings.interactivePanel.resolveLinks = value;
+							await this.plugin.saveSettings();
+						})
+				);
+			
+			new Setting(containerEl)
+				.setName("Resolve backlinks")
+				.setDesc("Add backlinks as additional context in interactive panel")
+				.addToggle((toggle) =>
+					toggle
+						.setValue(this.plugin.settings.interactivePanel.resolveBacklinks)
+						.onChange(async (value) => {
+							this.plugin.settings.interactivePanel.resolveBacklinks = value;
+							await this.plugin.saveSettings();
+						})
+				);
+
+			new Setting(containerEl)
+				.setName("Expand URLs")
+				.setDesc("Fetch and include content from URLs found in notes and prompt")
+				.addToggle((toggle) =>
+					toggle
+						.setValue(this.plugin.settings.interactivePanel.expandUrls)
+						.onChange(async (value) => {
+							this.plugin.settings.interactivePanel.expandUrls = value;
+							await this.plugin.saveSettings();
+						})
+				);
 		}
 	}
 }

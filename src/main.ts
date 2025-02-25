@@ -53,6 +53,8 @@ import {
 	isFlow,
 	isCanvasFlow,
 	insertPayload,
+	extractLinksFromContent,
+	fetchUrlContent,
 } from "./utils";
 import {
 	CloudAtlasGlobalSettingsTab,
@@ -152,6 +154,7 @@ export default class CloudAtlasPlugin extends Plugin {
 				mode: null,
 				resolveBacklinks: true,
 				resolveForwardLinks: true,
+				expandUrls: true,
 				exclusionPatterns: [],
 				frontMatterOffset: 0,
 				llmOptions: {
@@ -159,6 +162,7 @@ export default class CloudAtlasPlugin extends Plugin {
 					max_tokens: this.settings.llmOptions.max_tokens,
 				},
 				additional_context: {},
+				model: null,
 			},
 		};
 
@@ -208,6 +212,13 @@ export default class CloudAtlasPlugin extends Plugin {
 				if (flowConfig?.resolveBacklinks === undefined) {
 					flowConfig.resolveBacklinks =
 						previousConfig.resolveBacklinks;
+				}
+				if (flowConfig?.expandUrls === undefined) {
+					flowConfig.expandUrls = previousConfig.expandUrls;
+				}
+				// Inherit model if not defined
+				if (flowConfig?.model === null) {
+					flowConfig.model = previousConfig.model;
 				}
 			}
 
@@ -260,6 +271,16 @@ export default class CloudAtlasPlugin extends Plugin {
 				Object.assign(additionalContext, resolvedBacklinks);
 			}
 
+			if (flowConfig.expandUrls) {
+				const urls = extractLinksFromContent(flowContent);
+				for (const url of urls) {
+					const content = await fetchUrlContent(url);
+					if (content) {
+						additionalContext[url] = content;
+					}
+				}
+			}
+
 			user.additional_context = additionalContext;
 
 			const data = {
@@ -272,7 +293,8 @@ export default class CloudAtlasPlugin extends Plugin {
 						previousPayload.options.generate_embeddings,
 					wikify: previousPayload.options.wikify,
 				},
-				provider: previousPayload.provider,
+				// Use the model to set the provider if available
+				provider: flowConfig.model || previousPayload.provider,
 				llmOptions: {
 					temperature:
 						Number(flowConfig.llmOptions.temperature) ||
@@ -326,10 +348,12 @@ export default class CloudAtlasPlugin extends Plugin {
 			mode: metadata?.frontmatter?.mode,
 			resolveBacklinks: metadata?.frontmatter?.resolveBacklinks,
 			resolveForwardLinks: metadata?.frontmatter?.resolveForwardLinks,
+			expandUrls: metadata?.frontmatter?.expandUrls,
 			exclusionPatterns: metadata?.frontmatter?.exclusionPatterns || [],
 			frontMatterOffset: metadata?.frontmatterPosition?.end?.offset || 0,
 			llmOptions,
 			additional_context: additionalContext,
+			model: metadata?.frontmatter?.model || null,
 		};
 	};
 
@@ -1110,16 +1134,16 @@ export default class CloudAtlasPlugin extends Plugin {
 				// Get current folder
 				const activeFile = this.app.workspace.getActiveFile();
 				if (!activeFile) return false;
-				
+
 				// Get folder path
 				const folderPath = activeFile.parent?.path;
 				if (!folderPath) return false;
-				
+
 				if (!checking) {
 					this.setupAutoProcessing(folderPath);
 				}
 				return true;
-			}
+			},
 		});
 
 		this.registerView(CA_VIEW_TYPE, (leaf) => new FlowView(leaf, this));
@@ -1133,9 +1157,9 @@ export default class CloudAtlasPlugin extends Plugin {
 			this.app.vault.on("create", (file) => {
 				console.log("Creating file:", file.path);
 				if (!(file instanceof TFile)) return;
-				
+
 				// Check if file is in a "sources" folder
-				if (file.path.includes('/sources/')) {
+				if (file.path.includes("/sources/")) {
 					this.processNewSourceFile(file);
 				}
 			})
@@ -1145,11 +1169,11 @@ export default class CloudAtlasPlugin extends Plugin {
 			this.app.vault.on("rename", (file, oldPath) => {
 				console.log("Moving/renaming file:", oldPath, "to", file.path);
 				if (!(file instanceof TFile)) return;
-				
+
 				// Check if the NEW path is in a "sources" folder
-				if (file.path.includes('/sources/')) {
+				if (file.path.includes("/sources/")) {
 					// Check if the OLD path was NOT in a sources folder
-					if (!oldPath.includes('/sources/')) {
+					if (!oldPath.includes("/sources/")) {
 						// Only process if it's newly moved into sources
 						this.processNewSourceFile(file);
 					}
@@ -1243,32 +1267,47 @@ export default class CloudAtlasPlugin extends Plugin {
 	async processNewSourceFile(file: TFile) {
 		// Skip processing if auto-processing is disabled globally
 		if (!this.settings.autoProcessing.enabled) return;
-		
+
 		// Determine parent folder path
-		const pathParts = file.path.split('/');
-		const sourcesIndex = pathParts.findIndex(p => p === 'sources');
+		const pathParts = file.path.split("/");
+		const sourcesIndex = pathParts.findIndex((p) => p === "sources");
 		if (sourcesIndex <= 0) return;
-		
-		const parentFolderPath = pathParts.slice(0, sourcesIndex).join('/');
-		
+
+		const parentFolderPath = pathParts.slice(0, sourcesIndex).join("/");
+
 		// Look for configuration in parent folder
 		const config = await this.getAutoProcessingConfig(parentFolderPath);
 		if (!config || !config.enabled) return;
-		
+
 		// Show processing notice
-		const notice = new Notice(`Processing ${file.basename} with ${config.flow} flow...`, 0);
+		const notice = new Notice(
+			`Processing ${file.basename} with ${config.flow} flow...`,
+			0
+		);
 		animateNotice(notice);
-		
+
 		try {
 			// Process file with the specified flow
 			console.log(`Processing with flow: ${config.flow}`);
 			const result = await this.flowToResponse(file, config.flow);
-			
+
 			// Generate and save output file
-			const outputFilename = this.generateOutputFilename(file, config.outputNameTemplate);
+			const outputFilename = this.generateOutputFilename(
+				file,
+				config.outputNameTemplate
+			);
 			const outputPath = `${parentFolderPath}/${outputFilename}`;
-			await this.app.vault.create(outputPath, result);
-			
+			try {
+				const existingFile = getFileByPath(outputPath, this.app);
+				if (existingFile) {
+					await this.app.vault.modify(existingFile, result);
+				} else {
+					await this.app.vault.create(outputPath, result);
+				}
+			} catch (e) {
+				await this.app.vault.create(outputPath, result);
+			}
+
 			// Success notice
 			notice.hide();
 			clearTimeout(noticeTimeout);
@@ -1278,29 +1317,38 @@ export default class CloudAtlasPlugin extends Plugin {
 			notice.hide();
 			clearTimeout(noticeTimeout);
 			console.error("Auto-processing failed:", e);
-			new Notice(`Failed to process ${file.basename}. See console for details.`);
+			new Notice(
+				`Failed to process ${file.basename}. See console for details.`
+			);
 		}
 	}
 
-	async getAutoProcessingConfig(folderPath: string): Promise<AutoProcessingConfig | null> {
+	async getAutoProcessingConfig(
+		folderPath: string
+	): Promise<AutoProcessingConfig | null> {
 		const configPath = `${folderPath}/_autoprocess.md`;
-		
+
 		try {
 			const configFile = getFileByPath(configPath, this.app);
 			const metadata = this.app.metadataCache.getFileCache(configFile);
-			
+
 			if (metadata?.frontmatter) {
 				return {
 					enabled: metadata.frontmatter.enabled ?? true,
-					flow: metadata.frontmatter.flow ?? this.settings.autoProcessing.defaultFlow,
-					outputNameTemplate: metadata.frontmatter.outputNameTemplate ?? "${basename}-processed"
+					flow:
+						metadata.frontmatter.flow ??
+						this.settings.autoProcessing.defaultFlow,
+					outputNameTemplate:
+						metadata.frontmatter.outputNameTemplate ??
+						"${basename}-processed",
+					expandUrls: metadata.frontmatter.expandUrls ?? false,
 				};
 			}
 		} catch (e) {
 			// Config file doesn't exist
 			return null;
 		}
-		
+
 		return null;
 	}
 
@@ -1317,7 +1365,7 @@ export default class CloudAtlasPlugin extends Plugin {
 		} catch (e) {
 			// Folder might already exist, that's fine
 		}
-		
+
 		// Create configuration file
 		const configContent = `---
 enabled: true
@@ -1340,7 +1388,9 @@ This file configures automatic processing for files added to the "sources" subfo
 			new Notice(`Auto-processing setup complete in ${folderPath}`);
 		} catch (e) {
 			console.error("Failed to create auto-processing config:", e);
-			new Notice("Failed to setup auto-processing. See console for details.");
+			new Notice(
+				"Failed to setup auto-processing. See console for details."
+			);
 		}
 	}
 }

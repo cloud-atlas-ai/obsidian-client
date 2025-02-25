@@ -44,6 +44,11 @@ export const DEFAULT_SETTINGS: CloudAtlasPluginSettings = {
 	autoProcessing: {
 		enabled: false,
 		defaultFlow: "example"
+	},
+	interactivePanel: {
+		resolveLinks: false,
+		resolveBacklinks: false,
+		expandUrls: false
 	}
 };
 

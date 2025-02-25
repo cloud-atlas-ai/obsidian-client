@@ -7,7 +7,7 @@ export interface Payload {
 	user: User;
 	system: string | null;
 	options: Options;
-	provider: "azureai" | "openai" | "vertexai";
+	provider: "azureai" | "openai" | "vertexai" | string;
 	llmOptions: LlmOptions;
 	requestId: string;
 	// V1 is the legacy sync version
@@ -38,10 +38,12 @@ export interface FlowConfig {
 	mode: string | null;
 	resolveBacklinks: boolean;
 	resolveForwardLinks: boolean;
+	expandUrls: boolean;
 	exclusionPatterns: string[];
 	frontMatterOffset: number;
 	llmOptions: LlmOptions;
 	additional_context: AdditionalContext;
+	model: string | null;
 	// Add other flow properties as needed
 }
 
@@ -77,4 +79,5 @@ export interface AutoProcessingConfig {
 	enabled: boolean;
 	flow: string;
 	outputNameTemplate: string; // e.g., "${basename}-processed"
+	expandUrls?: boolean;
 }

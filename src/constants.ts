@@ -56,7 +56,9 @@ export const exampleFlowString = `---
 system_instructions: You are a helpful assistant.
 resolveBacklinks: true
 resolveForwardLinks: true
+expandUrls: true
 exclusionPattern: ["^Private/", ".*-confidential.*"]
+can_delegate: false
 ---
 
 Say hello to the user.

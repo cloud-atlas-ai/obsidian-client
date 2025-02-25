@@ -44,7 +44,7 @@ export interface FlowConfig {
 	llmOptions: LlmOptions;
 	additional_context: AdditionalContext;
 	model: string | null;
-	// Add other flow properties as needed
+	can_delegate: boolean;
 }
 
 export enum NamedEntity {

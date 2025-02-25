@@ -108,7 +108,7 @@ export default class CloudAtlasPlugin extends Plugin {
 		input: string | null,
 		inputFlowFile: TFile,
 		flow: string
-	): Promise<Payload | null> => {
+	): Promise<PayloadConfig | null> => {
 		const templateFlowFilePath = this.getFlowFilePath(flow);
 		const dataFlowFilePath = this.getFlowdataFilePath(flow);
 
@@ -118,15 +118,15 @@ export default class CloudAtlasPlugin extends Plugin {
 			inputFlowFile.path,
 		];
 
-		const payload = await this.combineFlows(flows, input);
+		const payloadConfig = await this.combineFlows(flows, input);
 
-		return payload;
+		return payloadConfig;
 	};
 
 	combineFlows = async (
 		paths: string[],
 		input: string | null
-	): Promise<Payload | null> => {
+	): Promise<PayloadConfig | null> => {
 		const uniquePaths = [...new Set(paths)];
 		const payloadConfig: PayloadConfig = {
 			payload: {
@@ -163,6 +163,7 @@ export default class CloudAtlasPlugin extends Plugin {
 				},
 				additional_context: {},
 				model: null,
+				can_delegate: false,
 			},
 		};
 
@@ -188,7 +189,7 @@ export default class CloudAtlasPlugin extends Plugin {
 			index++;
 		}
 
-		return payloadConfig.payload;
+		return payloadConfig;
 	};
 
 	pathToPayload = async (
@@ -217,8 +218,11 @@ export default class CloudAtlasPlugin extends Plugin {
 					flowConfig.expandUrls = previousConfig.expandUrls;
 				}
 				// Inherit model if not defined
-				if (flowConfig?.model === null) {
+				if (flowConfig?.model === undefined) {
 					flowConfig.model = previousConfig.model;
+				}
+				if (flowConfig?.can_delegate === undefined) {
+					flowConfig.can_delegate = previousConfig.can_delegate;
 				}
 			}
 
@@ -353,7 +357,8 @@ export default class CloudAtlasPlugin extends Plugin {
 			frontMatterOffset: metadata?.frontmatterPosition?.end?.offset || 0,
 			llmOptions,
 			additional_context: additionalContext,
-			model: metadata?.frontmatter?.model || null,
+			model: metadata?.frontmatter?.model,
+			can_delegate: metadata?.frontmatter?.can_delegate,
 		};
 	};
 
@@ -362,13 +367,48 @@ export default class CloudAtlasPlugin extends Plugin {
 	};
 
 	flowToResponse = async (path: TFile, flow: string): Promise<string> => {
-		const payload = await this.collectInputsIntoPayload(null, path, flow);
+		const payloadConfig = await this.collectInputsIntoPayload(
+			null,
+			path,
+			flow
+		);
 
-		if (!payload) {
+		if (!payloadConfig?.payload) {
 			throw new Error("Could not construct payload!");
 		}
 
-		const respJson = await this.apiFetch(payload);
+		let respJson = await this.apiFetch(payloadConfig.payload);
+
+		console.log(payloadConfig.config);
+
+		if (payloadConfig.config.can_delegate) {
+			// Save the response to a temporary file for debugging or reference
+			const flows: string[] = JSON.parse(respJson);
+			for (let i = 0; i < flows.length; i++) {
+				const flow = flows[i];
+				if (i === 0) {
+					// this is the first post delegation flow, it needs to run on the original file
+					respJson = await this.flowToResponse(path, flow);
+				} else {
+					try {
+						const tempFilePath = `CloudAtlas/temp/${payloadConfig.payload.requestId}_response.json`;
+						await this.createFolder("CloudAtlas/temp");
+						await this.app.vault.create(tempFilePath, respJson);
+						console.log(`Saved response to ${tempFilePath}`);
+						respJson = await this.flowToResponse(
+							await getFileByPath(tempFilePath, this.app),
+							flow
+						);
+					} catch (error) {
+						console.error(
+							"Failed to save response to temp file:",
+							error
+						);
+					}
+				}
+			}
+		}
+
 		return respJson;
 	};
 
@@ -404,15 +444,15 @@ export default class CloudAtlasPlugin extends Plugin {
 
 		const flows = [templateFlowFilePath, dataFlowFilePath].filter(Boolean);
 
-		const payload = await this.combineFlows(flows, null);
+		const payloadConfig = await this.combineFlows(flows, null);
 
-		console.log(payload);
+		console.log(payloadConfig);
 
-		if (payload) {
+		if (payloadConfig?.payload) {
 			const flowResponse = await insertPayload(
 				this.settings.apiKey,
 				flow,
-				payload
+				payloadConfig.payload
 			);
 
 			console.debug("Payload insert: ", flowResponse.status);
@@ -714,6 +754,8 @@ export default class CloudAtlasPlugin extends Plugin {
 					throw new Error("Timeout out waiting for results");
 				}
 			}
+
+			// console.log("respJsonS: ", respJsonS);
 
 			return respJsonS[0].response;
 		}
@@ -1217,17 +1259,17 @@ export default class CloudAtlasPlugin extends Plugin {
 				if (!inputFlowFile) {
 					return null;
 				}
-				const payload = await this.collectInputsIntoPayload(
+				const payloadConfig = await this.collectInputsIntoPayload(
 					input,
 					inputFlowFile,
 					flow
 				);
 
-				if (!payload) {
+				if (!payloadConfig?.payload) {
 					throw new Error("Could not construct payload!");
 				}
 
-				const canvasContent = payloadToGraph(payload);
+				const canvasContent = payloadToGraph(payloadConfig.payload);
 
 				const canvasFilePath = `CloudAtlas/${flow}.flow.canvas`;
 				const canvasFile = await getFileByPath(
@@ -1304,9 +1346,15 @@ export default class CloudAtlasPlugin extends Plugin {
 			try {
 				const existingFile = getFileByPath(outputPath, this.app);
 				if (existingFile) {
-					await this.app.vault.modify(existingFile, resultWithSourceLink);
+					await this.app.vault.modify(
+						existingFile,
+						resultWithSourceLink
+					);
 				} else {
-					await this.app.vault.create(outputPath, resultWithSourceLink);
+					await this.app.vault.create(
+						outputPath,
+						resultWithSourceLink
+					);
 				}
 			} catch (e) {
 				await this.app.vault.create(outputPath, resultWithSourceLink);

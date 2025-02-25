@@ -72,3 +72,9 @@ export interface AzureAiSettings {
 	deploymentId: string;
 	endpoint: string;
 }
+
+export interface AutoProcessingConfig {
+	enabled: boolean;
+	flow: string;
+	outputNameTemplate: string; // e.g., "${basename}-processed"
+}

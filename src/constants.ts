@@ -41,6 +41,10 @@ export const DEFAULT_SETTINGS: CloudAtlasPluginSettings = {
 	},
 	provider: "openai",
 	registeredFlows: [],
+	autoProcessing: {
+		enabled: false,
+		defaultFlow: "example"
+	}
 };
 
 export const exampleFlowString = `---

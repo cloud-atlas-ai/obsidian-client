@@ -25,6 +25,10 @@ export interface CloudAtlasPluginSettings {
 	azureAiSettings: AzureAiSettings;
 	provider: string;
 	registeredFlows: string[];
+	autoProcessing: {
+		enabled: boolean;
+		defaultFlow: string;
+	};
 }
 
 export class CloudAtlasGlobalSettingsTab extends PluginSettingTab {
@@ -384,6 +388,38 @@ export class CloudAtlasGlobalSettingsTab extends PluginSettingTab {
 								});
 						});
 				});
+			}
+
+			// Add Auto-Processing section
+			containerEl.createEl("h2", { text: "Auto-Processing" });
+			
+			new Setting(containerEl)
+				.setName("Enable Auto-Processing")
+				.setDesc("Automatically process files added to 'sources' subfolders")
+				.addToggle((toggle) =>
+					toggle
+						.setValue(this.plugin.settings.autoProcessing.enabled)
+						.onChange(async (value) => {
+							this.plugin.settings.autoProcessing.enabled = value;
+							await this.plugin.saveSettings();
+						})
+				);
+
+			if (this.plugin.settings.autoProcessing.enabled) {
+				new Setting(containerEl)
+					.setName("Default Flow")
+					.setDesc("The default flow to use for auto-processing")
+					.addDropdown((dropdown) => {
+						// Add all registered flows to the dropdown
+						this.plugin.settings.registeredFlows.forEach(flow => {
+							dropdown.addOption(flow, flow);
+						});
+						dropdown.setValue(this.plugin.settings.autoProcessing.defaultFlow);
+						dropdown.onChange(async (value) => {
+							this.plugin.settings.autoProcessing.defaultFlow = value;
+							await this.plugin.saveSettings();
+						});
+					});
 			}
 		}
 	}

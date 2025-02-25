@@ -36,6 +36,7 @@ import {
 	PayloadConfig,
 	LlmOptions,
 	ResponseRow,
+	AutoProcessingConfig,
 } from "./interfaces";
 import { v4 as uuidv4 } from "uuid";
 import {
@@ -1102,12 +1103,59 @@ export default class CloudAtlasPlugin extends Plugin {
 			},
 		});
 
+		this.addCommand({
+			id: "setup-auto-processing",
+			name: "Setup Auto-Processing in Current Folder",
+			checkCallback: (checking: boolean) => {
+				// Get current folder
+				const activeFile = this.app.workspace.getActiveFile();
+				if (!activeFile) return false;
+				
+				// Get folder path
+				const folderPath = activeFile.parent?.path;
+				if (!folderPath) return false;
+				
+				if (!checking) {
+					this.setupAutoProcessing(folderPath);
+				}
+				return true;
+			}
+		});
+
 		this.registerView(CA_VIEW_TYPE, (leaf) => new FlowView(leaf, this));
 		this.registerView(
 			INTERACTIVE_PANEL_TYPE,
 			(leaf) => new InteractivePanel(leaf, this)
 		);
 		this.addSettingTab(new CloudAtlasGlobalSettingsTab(this.app, this));
+
+		this.registerEvent(
+			this.app.vault.on("create", (file) => {
+				console.log("Creating file:", file.path);
+				if (!(file instanceof TFile)) return;
+				
+				// Check if file is in a "sources" folder
+				if (file.path.includes('/sources/')) {
+					this.processNewSourceFile(file);
+				}
+			})
+		);
+
+		this.registerEvent(
+			this.app.vault.on("rename", (file, oldPath) => {
+				console.log("Moving/renaming file:", oldPath, "to", file.path);
+				if (!(file instanceof TFile)) return;
+				
+				// Check if the NEW path is in a "sources" folder
+				if (file.path.includes('/sources/')) {
+					// Check if the OLD path was NOT in a sources folder
+					if (!oldPath.includes('/sources/')) {
+						// Only process if it's newly moved into sources
+						this.processNewSourceFile(file);
+					}
+				}
+			})
+		);
 	}
 
 	updateFlowCanvasClass(file: TFile | null) {
@@ -1190,5 +1238,109 @@ export default class CloudAtlasPlugin extends Plugin {
 
 	async saveSettings() {
 		await this.saveData(this.settings);
+	}
+
+	async processNewSourceFile(file: TFile) {
+		// Skip processing if auto-processing is disabled globally
+		if (!this.settings.autoProcessing.enabled) return;
+		
+		// Determine parent folder path
+		const pathParts = file.path.split('/');
+		const sourcesIndex = pathParts.findIndex(p => p === 'sources');
+		if (sourcesIndex <= 0) return;
+		
+		const parentFolderPath = pathParts.slice(0, sourcesIndex).join('/');
+		
+		// Look for configuration in parent folder
+		const config = await this.getAutoProcessingConfig(parentFolderPath);
+		if (!config || !config.enabled) return;
+		
+		// Show processing notice
+		const notice = new Notice(`Processing ${file.basename} with ${config.flow} flow...`, 0);
+		animateNotice(notice);
+		
+		try {
+			// Process file with the specified flow
+			console.log(`Processing with flow: ${config.flow}`);
+			const result = await this.flowToResponse(file, config.flow);
+			
+			// Generate and save output file
+			const outputFilename = this.generateOutputFilename(file, config.outputNameTemplate);
+			const outputPath = `${parentFolderPath}/${outputFilename}`;
+			await this.app.vault.create(outputPath, result);
+			
+			// Success notice
+			notice.hide();
+			clearTimeout(noticeTimeout);
+			new Notice(`Processing complete: ${outputFilename}`);
+		} catch (e) {
+			// Error handling
+			notice.hide();
+			clearTimeout(noticeTimeout);
+			console.error("Auto-processing failed:", e);
+			new Notice(`Failed to process ${file.basename}. See console for details.`);
+		}
+	}
+
+	async getAutoProcessingConfig(folderPath: string): Promise<AutoProcessingConfig | null> {
+		const configPath = `${folderPath}/_autoprocess.md`;
+		
+		try {
+			const configFile = getFileByPath(configPath, this.app);
+			const metadata = this.app.metadataCache.getFileCache(configFile);
+			
+			if (metadata?.frontmatter) {
+				return {
+					enabled: metadata.frontmatter.enabled ?? true,
+					flow: metadata.frontmatter.flow ?? this.settings.autoProcessing.defaultFlow,
+					outputNameTemplate: metadata.frontmatter.outputNameTemplate ?? "${basename}-processed"
+				};
+			}
+		} catch (e) {
+			// Config file doesn't exist
+			return null;
+		}
+		
+		return null;
+	}
+
+	generateOutputFilename(file: TFile, template: string): string {
+		const basename = file.basename;
+		return template.replace("${basename}", basename) + ".md";
+	}
+
+	async setupAutoProcessing(folderPath: string) {
+		// Create sources subfolder if it doesn't exist
+		const sourcesPath = `${folderPath}/sources`;
+		try {
+			await this.app.vault.createFolder(sourcesPath);
+		} catch (e) {
+			// Folder might already exist, that's fine
+		}
+		
+		// Create configuration file
+		const configContent = `---
+enabled: true
+flow: ${this.settings.autoProcessing.defaultFlow || "example"}
+outputNameTemplate: \${basename}-processed
+---
+
+# Auto-Processing Configuration
+
+This file configures automatic processing for files added to the "sources" subfolder.
+
+- **enabled**: Set to true to enable auto-processing, false to disable
+- **flow**: The flow to use for processing
+- **outputNameTemplate**: Template for naming output files. \${basename} will be replaced with the input file name
+`;
+
+		const configPath = `${folderPath}/_autoprocess.md`;
+		try {
+			await this.app.vault.create(configPath, configContent);
+			new Notice(`Auto-processing setup complete in ${folderPath}`);
+		} catch (e) {
+			console.error("Failed to create auto-processing config:", e);
+			new Notice("Failed to setup auto-processing. See console for details.");
+		}
 	}
 }

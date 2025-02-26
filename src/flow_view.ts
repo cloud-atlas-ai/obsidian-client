@@ -37,7 +37,12 @@ export class FlowView extends ItemView {
 					file.path.startsWith("CloudAtlas/") &&
 					file.path.endsWith(".flow.md")
 			)
-			.map((f) => f.path.split("/")[1].split(".flow.md")[0])
+			.map((f) => {
+				const path = f.path;
+				const afterCloudAtlas = path.substring(path.indexOf("CloudAtlas/") + "CloudAtlas/".length);
+				const beforeFlowMd = afterCloudAtlas.substring(0, afterCloudAtlas.indexOf(".flow.md"));
+				return beforeFlowMd;
+			})
 			.sort();
 
 		console.debug(`Found ${cloudAtlasFlows.length} CloudAtlas flows`);

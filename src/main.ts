@@ -100,6 +100,10 @@ export default class CloudAtlasPlugin extends Plugin {
 		return normalizePath(`CloudAtlas/${flow}.flow.md`);
 	};
 
+	getCapabilityFlowFilePath = (flow: string) => {
+		return normalizePath(`CloudAtlas/capabilities/${flow}.flow.md`);
+	};
+
 	getFlowdataFilePath = (flow: string) => {
 		return normalizePath(`CloudAtlas/${flow}.flowdata.md`);
 	};
@@ -107,9 +111,15 @@ export default class CloudAtlasPlugin extends Plugin {
 	collectInputsIntoPayload = async (
 		input: string | null,
 		inputFlowFile: TFile,
-		flow: string
+		flow: string,
+		isCapability: boolean = false
 	): Promise<PayloadConfig | null> => {
-		const templateFlowFilePath = this.getFlowFilePath(flow);
+		let templateFlowFilePath;
+		if (isCapability) {
+			templateFlowFilePath = this.getCapabilityFlowFilePath(flow);
+		} else {
+			templateFlowFilePath = this.getFlowFilePath(flow);
+		}
 		const dataFlowFilePath = this.getFlowdataFilePath(flow);
 
 		const flows = [
@@ -230,6 +240,18 @@ export default class CloudAtlasPlugin extends Plugin {
 			flowContent = flowContent
 				.substring(flowConfig.frontMatterOffset)
 				.trim();
+
+			// Check if the flow content contains the capabilities shortcut and expand it in memory
+			if (flowContent.includes("{{ca-capabilities}}")) {
+				console.debug(
+					"Found capabilities shortcut in flow, expanding in memory"
+				);
+				const capabilitiesList = await this.getCapabilitiesList();
+				flowContent = flowContent.replace(
+					"{{ca-capabilities}}",
+					capabilitiesList
+				);
+			}
 
 			// This should happen only on the last step of the stack
 			let input;
@@ -366,7 +388,11 @@ export default class CloudAtlasPlugin extends Plugin {
 		return patterns.map((pattern) => new RegExp(pattern));
 	};
 
-	flowToResponse = async (path: TFile, flow: string): Promise<string> => {
+	flowToResponse = async (
+		path: TFile,
+		flow: string,
+		isCapability: boolean = false
+	): Promise<string> => {
 		const payloadConfig = await this.collectInputsIntoPayload(
 			null,
 			path,
@@ -397,7 +423,8 @@ export default class CloudAtlasPlugin extends Plugin {
 						console.log(`Saved response to ${tempFilePath}`);
 						respJson = await this.flowToResponse(
 							await getFileByPath(tempFilePath, this.app),
-							flow
+							flow,
+							true
 						);
 					} catch (error) {
 						console.error(
@@ -1135,6 +1162,16 @@ export default class CloudAtlasPlugin extends Plugin {
 		} catch (e) {
 			console.debug("Could not create folder, it likely already exists");
 		}
+
+		try {
+			// Create the capabilities folder if it doesn't exist
+			await this.createFolder("CloudAtlas/capabilities");
+		} catch (e) {
+			console.debug(
+				"Could not create capabilities folder, it likely already exists"
+			);
+		}
+
 		console.debug("Bootstraped CloudAtlas folder");
 
 		this.addCommand({
@@ -1147,6 +1184,27 @@ export default class CloudAtlasPlugin extends Plugin {
 					exampleFlowString
 				);
 				this.app.vault.create(`CloudAtlas/${name}.flowdata.md`, "");
+			},
+		});
+
+		this.addCommand({
+			id: `create-capability-flow`,
+			name: `Create new capability flow`,
+			callback: async () => {
+				// Create capabilities folder if it doesn't exist
+				await this.createFolder("CloudAtlas/capabilities");
+
+				// Generate a random name for the flow
+				const name = randomName();
+
+				// Create the flow file
+				await this.app.vault.create(
+					`CloudAtlas/capabilities/${name}.flow.md`,
+					exampleFlowString
+				);
+
+				// Show a notice
+				new Notice(`Created capability flow: ${name}`);
 			},
 		});
 
@@ -1176,11 +1234,11 @@ export default class CloudAtlasPlugin extends Plugin {
 				// Get current folder
 				const activeFile = this.app.workspace.getActiveFile();
 				if (!activeFile) return false;
-				
+
 				// Get folder path
 				const folderPath = activeFile.parent?.path;
 				if (!folderPath) return false;
-				
+
 				if (!checking) {
 					this.setupAutoProcessing(folderPath);
 				}
@@ -1301,33 +1359,33 @@ export default class CloudAtlasPlugin extends Plugin {
 	async processNewFile(file: TFile) {
 		// Skip processing if auto-processing is disabled globally
 		if (!this.settings.autoProcessing.enabled) return;
-		
+
 		// Skip processing configuration files themselves
 		if (file.basename === "_cloudatlas") return;
-		
+
 		// Get the folder path
 		const folderPath = file.parent?.path || "";
-		
+
 		// Look for configuration in the folder
 		const config = await this.getAutoProcessingConfig(folderPath);
 		if (!config || !config.enabled) return;
-		
+
 		// Show processing notice
 		const notice = new Notice(
 			`Processing ${file.basename} with ${config.flow} flow...`,
 			0
 		);
 		animateNotice(notice);
-		
+
 		try {
 			// Process file with the specified flow
 			console.log(`Processing with flow: ${config.flow}`);
 			const result = await this.flowToResponse(file, config.flow);
-			
+
 			// Add source file link to the result
 			const sourceLink = `\n\n---\nSource: [[${file.path}|${file.basename}]]`;
 			const resultWithSourceLink = result + sourceLink;
-			
+
 			// Generate and save output file
 			const outputFilename = this.generateOutputFilename(
 				file,
@@ -1350,7 +1408,7 @@ export default class CloudAtlasPlugin extends Plugin {
 			} catch (e) {
 				await this.app.vault.create(outputPath, resultWithSourceLink);
 			}
-			
+
 			// Success notice
 			notice.hide();
 			clearTimeout(noticeTimeout);
@@ -1370,17 +1428,16 @@ export default class CloudAtlasPlugin extends Plugin {
 		folderPath: string
 	): Promise<AutoProcessingConfig | null> {
 		// Try _cloudatlas.md first, then fall back to _autoprocess.md
-		const configPaths = [
-			`${folderPath}/_cloudatlas.md`,
-		];
-		
+		const configPaths = [`${folderPath}/_cloudatlas.md`];
+
 		for (const configPath of configPaths) {
 			try {
 				const configFile = getFileByPath(configPath, this.app);
 				if (!configFile) continue;
-				
-				const metadata = this.app.metadataCache.getFileCache(configFile);
-				
+
+				const metadata =
+					this.app.metadataCache.getFileCache(configFile);
+
 				if (metadata?.frontmatter) {
 					return {
 						enabled: metadata.frontmatter.enabled ?? true,
@@ -1398,7 +1455,7 @@ export default class CloudAtlasPlugin extends Plugin {
 				continue;
 			}
 		}
-		
+
 		return null;
 	}
 
@@ -1433,6 +1490,46 @@ This file configures automatic processing for files added to this folder.
 			new Notice(
 				"Failed to setup auto-processing. See console for details."
 			);
+		}
+	}
+
+	/**
+	 * Lists all .flow files in the capabilities folder and formats them as a markdown list
+	 */
+	async getCapabilitiesList(): Promise<string> {
+		try {
+			// Get all files in the vault
+			const vaultFiles = this.app.vault.getMarkdownFiles();
+
+			// Filter for .flow.md files in the capabilities folder
+			const capabilityFlows = vaultFiles
+				.filter(
+					(file) =>
+						file.path.startsWith("CloudAtlas/capabilities/") &&
+						file.path.endsWith(".flow.md")
+				)
+				.map((f) => {
+					// Extract flow name from path
+					const flowName =
+						f.path.split("/").pop()?.split(".flow.md")[0] || "";
+					return flowName;
+				})
+				.sort();
+
+			// Format as a markdown list
+			if (capabilityFlows.length === 0) {
+				return "No capability flows found in CloudAtlas/capabilities folder.";
+			}
+
+			let result = "**Available Capabilities:**\n\n";
+			capabilityFlows.forEach((flow) => {
+				result += `- ${flow}\n`;
+			});
+
+			return result;
+		} catch (e) {
+			console.error("Error getting capabilities list:", e);
+			return "Error listing capabilities.";
 		}
 	}
 }

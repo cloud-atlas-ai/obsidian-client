@@ -1176,11 +1176,11 @@ export default class CloudAtlasPlugin extends Plugin {
 				// Get current folder
 				const activeFile = this.app.workspace.getActiveFile();
 				if (!activeFile) return false;
-
+				
 				// Get folder path
 				const folderPath = activeFile.parent?.path;
 				if (!folderPath) return false;
-
+				
 				if (!checking) {
 					this.setupAutoProcessing(folderPath);
 				}
@@ -1200,10 +1200,8 @@ export default class CloudAtlasPlugin extends Plugin {
 				console.log("Creating file:", file.path);
 				if (!(file instanceof TFile)) return;
 
-				// Check if file is in a "sources" folder
-				if (file.path.includes("/sources/")) {
-					this.processNewSourceFile(file);
-				}
+				// Process any new file (not just those in "sources" folders)
+				this.processNewFile(file);
 			})
 		);
 
@@ -1212,14 +1210,8 @@ export default class CloudAtlasPlugin extends Plugin {
 				console.log("Moving/renaming file:", oldPath, "to", file.path);
 				if (!(file instanceof TFile)) return;
 
-				// Check if the NEW path is in a "sources" folder
-				if (file.path.includes("/sources/")) {
-					// Check if the OLD path was NOT in a sources folder
-					if (!oldPath.includes("/sources/")) {
-						// Only process if it's newly moved into sources
-						this.processNewSourceFile(file);
-					}
-				}
+				// Process the file if it's moved to a new location
+				this.processNewFile(file);
 			})
 		);
 	}
@@ -1306,43 +1298,42 @@ export default class CloudAtlasPlugin extends Plugin {
 		await this.saveData(this.settings);
 	}
 
-	async processNewSourceFile(file: TFile) {
+	async processNewFile(file: TFile) {
 		// Skip processing if auto-processing is disabled globally
 		if (!this.settings.autoProcessing.enabled) return;
-
-		// Determine parent folder path
-		const pathParts = file.path.split("/");
-		const sourcesIndex = pathParts.findIndex((p) => p === "sources");
-		if (sourcesIndex <= 0) return;
-
-		const parentFolderPath = pathParts.slice(0, sourcesIndex).join("/");
-
-		// Look for configuration in parent folder
-		const config = await this.getAutoProcessingConfig(parentFolderPath);
+		
+		// Skip processing configuration files themselves
+		if (file.basename === "_cloudatlas") return;
+		
+		// Get the folder path
+		const folderPath = file.parent?.path || "";
+		
+		// Look for configuration in the folder
+		const config = await this.getAutoProcessingConfig(folderPath);
 		if (!config || !config.enabled) return;
-
+		
 		// Show processing notice
 		const notice = new Notice(
 			`Processing ${file.basename} with ${config.flow} flow...`,
 			0
 		);
 		animateNotice(notice);
-
+		
 		try {
 			// Process file with the specified flow
 			console.log(`Processing with flow: ${config.flow}`);
 			const result = await this.flowToResponse(file, config.flow);
-
+			
 			// Add source file link to the result
 			const sourceLink = `\n\n---\nSource: [[${file.path}|${file.basename}]]`;
 			const resultWithSourceLink = result + sourceLink;
-
+			
 			// Generate and save output file
 			const outputFilename = this.generateOutputFilename(
 				file,
 				config.outputNameTemplate
 			);
-			const outputPath = `${parentFolderPath}/${outputFilename}`;
+			const outputPath = `${folderPath}/${outputFilename}`;
 			try {
 				const existingFile = getFileByPath(outputPath, this.app);
 				if (existingFile) {
@@ -1359,7 +1350,7 @@ export default class CloudAtlasPlugin extends Plugin {
 			} catch (e) {
 				await this.app.vault.create(outputPath, resultWithSourceLink);
 			}
-
+			
 			// Success notice
 			notice.hide();
 			clearTimeout(noticeTimeout);
@@ -1378,29 +1369,36 @@ export default class CloudAtlasPlugin extends Plugin {
 	async getAutoProcessingConfig(
 		folderPath: string
 	): Promise<AutoProcessingConfig | null> {
-		const configPath = `${folderPath}/_autoprocess.md`;
-
-		try {
-			const configFile = getFileByPath(configPath, this.app);
-			const metadata = this.app.metadataCache.getFileCache(configFile);
-
-			if (metadata?.frontmatter) {
-				return {
-					enabled: metadata.frontmatter.enabled ?? true,
-					flow:
-						metadata.frontmatter.flow ??
-						this.settings.autoProcessing.defaultFlow,
-					outputNameTemplate:
-						metadata.frontmatter.outputNameTemplate ??
-						"${basename}-processed",
-					expandUrls: metadata.frontmatter.expandUrls ?? false,
-				};
+		// Try _cloudatlas.md first, then fall back to _autoprocess.md
+		const configPaths = [
+			`${folderPath}/_cloudatlas.md`,
+		];
+		
+		for (const configPath of configPaths) {
+			try {
+				const configFile = getFileByPath(configPath, this.app);
+				if (!configFile) continue;
+				
+				const metadata = this.app.metadataCache.getFileCache(configFile);
+				
+				if (metadata?.frontmatter) {
+					return {
+						enabled: metadata.frontmatter.enabled ?? true,
+						flow:
+							metadata.frontmatter.flow ??
+							this.settings.autoProcessing.defaultFlow,
+						outputNameTemplate:
+							metadata.frontmatter.outputNameTemplate ??
+							"${basename}-processed",
+						expandUrls: metadata.frontmatter.expandUrls ?? false,
+					};
+				}
+			} catch (e) {
+				// Config file doesn't exist or can't be read
+				continue;
 			}
-		} catch (e) {
-			// Config file doesn't exist
-			return null;
 		}
-
+		
 		return null;
 	}
 
@@ -1410,14 +1408,6 @@ export default class CloudAtlasPlugin extends Plugin {
 	}
 
 	async setupAutoProcessing(folderPath: string) {
-		// Create sources subfolder if it doesn't exist
-		const sourcesPath = `${folderPath}/sources`;
-		try {
-			await this.app.vault.createFolder(sourcesPath);
-		} catch (e) {
-			// Folder might already exist, that's fine
-		}
-
 		// Create configuration file
 		const configContent = `---
 enabled: true
@@ -1425,16 +1415,16 @@ flow: ${this.settings.autoProcessing.defaultFlow || "example"}
 outputNameTemplate: \${basename}-processed
 ---
 
-# Auto-Processing Configuration
+# CloudAtlas Auto-Processing Configuration
 
-This file configures automatic processing for files added to the "sources" subfolder.
+This file configures automatic processing for files added to this folder.
 
 - **enabled**: Set to true to enable auto-processing, false to disable
 - **flow**: The flow to use for processing
 - **outputNameTemplate**: Template for naming output files. \${basename} will be replaced with the input file name
 `;
 
-		const configPath = `${folderPath}/_autoprocess.md`;
+		const configPath = `${folderPath}/_cloudatlas.md`;
 		try {
 			await this.app.vault.create(configPath, configContent);
 			new Notice(`Auto-processing setup complete in ${folderPath}`);

@@ -189,7 +189,6 @@ export class InteractivePanel extends ItemView {
 		newInteractiveButton.addEventListener("click", () => {
 			this.emptyAttachedFilesList(this.attachedFilesListEl);
 			this.history = [];
-			this.responsePre.innerHTML = "";
 			this.promptTextbox.value = "";
 		});
 
@@ -327,7 +326,9 @@ export class InteractivePanel extends ItemView {
 				entity_recognition: this.settings.entityRecognition,
 				wikify: this.settings.wikify,
 			},
-			provider: this.settings.useOpenAi
+			provider: this.settings.autoModel
+				? "auto"
+				: this.settings.useOpenAi
 				? "openai"
 				: this.settings.useVertexAi
 				? "vertexai"
@@ -349,6 +350,12 @@ export class InteractivePanel extends ItemView {
 			notice.hide();
 			clearTimeout(noticeTimeout);
 			this.renderResponse(responseText);
+			const responseMsg: CaRequestMsg = {
+				user: null,
+				assistant: responseText,
+				system: null
+			}
+			this.history.push(responseMsg);
 			this.copyButton.show();
 		} catch (error) {
 			this.setLoading(false);

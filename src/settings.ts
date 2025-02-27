@@ -34,6 +34,8 @@ export interface CloudAtlasPluginSettings {
 		resolveBacklinks: boolean;
 		expandUrls: boolean;
 	};
+	createNewFile: boolean;
+	outputFileTemplate: string;
 }
 
 export class CloudAtlasGlobalSettingsTab extends PluginSettingTab {
@@ -260,23 +262,23 @@ export class CloudAtlasGlobalSettingsTab extends PluginSettingTab {
 		if (this.plugin.settings.advancedOptions) {
 			containerEl.createEl("h2", { text: "LLM" });
 
-			new Setting(containerEl)
-				.setName("LLM temperature")
-				.setDesc(
-					'Set default temperature for the LLM, the higher the temperature the more "creative" the LLM will be, default is usually around 0.8.'
-				)
-				.addText((text) =>
-					text
-						.setValue(
-							this.plugin.settings.llmOptions.temperature?.toString() ||
-								"0.8"
-						)
-						.onChange(async (value) => {
-							this.plugin.settings.llmOptions.temperature =
-								Number(value);
-							await this.plugin.saveSettings();
-						})
-				);
+			// new Setting(containerEl)
+			// 	.setName("LLM temperature")
+			// 	.setDesc(
+			// 		'Set default temperature for the LLM, the higher the temperature the more "creative" the LLM will be, default is usually around 0.8.'
+			// 	)
+			// 	.addText((text) =>
+			// 		text
+			// 			.setValue(
+			// 				this.plugin.settings.llmOptions.temperature?.toString() ||
+			// 					"0.8"
+			// 			)
+			// 			.onChange(async (value) => {
+			// 				this.plugin.settings.llmOptions.temperature =
+			// 					Number(value);
+			// 				await this.plugin.saveSettings();
+			// 			})
+			// 	);
 
 			new Setting(containerEl)
 				.setName("LLM max response tokens")
@@ -297,6 +299,37 @@ export class CloudAtlasGlobalSettingsTab extends PluginSettingTab {
 						})
 				);
 
+			// Add new settings for flow response handling
+			containerEl.createEl("h2", { text: "Flow Response Handling" });
+			
+			new Setting(containerEl)
+				.setName("Create new file for responses")
+				.setDesc("Create a new file for each flow response instead of appending to the current file")
+				.addToggle((toggle) =>
+					toggle
+						.setValue(this.plugin.settings.createNewFile || false)
+						.onChange(async (value) => {
+							this.plugin.settings.createNewFile = value;
+							await this.plugin.saveSettings();
+							this.display();
+						})
+				);
+			
+			// Only show output file template if createNewFile is enabled
+			if (this.plugin.settings.createNewFile) {
+				new Setting(containerEl)
+					.setName("Output file template")
+					.setDesc("Template for naming output files. Available variables: ${basename} (current file name), ${flow} (flow name), ${timestamp} (Unix timestamp for better sorting)")
+					.addText((text) =>
+						text
+							.setValue(this.plugin.settings.outputFileTemplate || "${basename}-${flow}")
+							.onChange(async (value) => {
+								this.plugin.settings.outputFileTemplate = value;
+								await this.plugin.saveSettings();
+							})
+					);
+			}
+
 			if (this.plugin.settings.provider === "cloudatlas") {
 				new Setting(containerEl)
 					.setName("Timeout minutes")
@@ -314,6 +347,7 @@ export class CloudAtlasGlobalSettingsTab extends PluginSettingTab {
 								await this.plugin.saveSettings();
 							})
 					);
+				
 				containerEl.createEl("h2", { text: "Canvas flows" });
 
 				new Setting(containerEl)

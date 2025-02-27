@@ -86,3 +86,34 @@ export interface AutoProcessingConfig {
 	outputNameTemplate: string; // e.g., "${basename}-processed"
 	expandUrls?: boolean;
 }
+
+export interface CloudAtlasPluginSettings {
+	apiKey: string;
+	advancedOptions: boolean;
+	useOpenAi: boolean;
+	useVertexAi: boolean;
+	previewMode: boolean;
+	entityRecognition: boolean;
+	generateEmbeddings: boolean;
+	wikify: string[];
+	canvasResolveLinks: boolean;
+	canvasResolveBacklinks: boolean;
+	developmentMode: boolean;
+	llmOptions: LlmOptions;
+	timeoutMins: number;
+	openAiSettings: OpenAiSettings;
+	azureAiSettings: AzureAiSettings;
+	provider: string;
+	registeredFlows: string[];
+	createNewFile: boolean; // Whether to create a new file for flow responses instead of modifying the current file
+	outputFileTemplate: string; // Template for naming output files
+	autoProcessing: {
+		enabled: boolean;
+		defaultFlow: string;
+	};
+	interactivePanel: {
+		resolveLinks: boolean;
+		resolveBacklinks: boolean;
+		expandUrls: boolean;
+	};
+}

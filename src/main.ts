@@ -509,24 +509,27 @@ export default class CloudAtlasPlugin extends Plugin {
 		const input = editor?.getSelection();
 		const fromSelection = Boolean(input);
 
-		if (editor) {
-			if (fromSelection) {
-				editor.replaceSelection(
-					input + "\n\n---\n\n" + PLACEHOLDER + "\n\n---\n"
-				);
-			} else {
-				// Create the placeholder content to be inserted
-				const curCursor = editor.getCursor();
-				const placeholderContent =
-					"\n---\n\n" + PLACEHOLDER + "\n\n---\n";
+		// If we're not creating a new file, add the placeholder to the current file
+		if (!this.settings.createNewFile) {
+			if (editor) {
+				if (fromSelection) {
+					editor.replaceSelection(
+						input + "\n\n---\n\n" + PLACEHOLDER + "\n\n---\n"
+					);
+				} else {
+					// Create the placeholder content to be inserted
+					const curCursor = editor.getCursor();
+					const placeholderContent =
+						"\n---\n\n" + PLACEHOLDER + "\n\n---\n";
 
-				// Insert the placeholder content at the cursor position
-				editor.replaceRange(placeholderContent, curCursor);
+					// Insert the placeholder content at the cursor position
+					editor.replaceRange(placeholderContent, curCursor);
+				}
+			} else {
+				const current = await this.app.vault.read(inputFlowFile);
+				const output = current + "\n---\n" + PLACEHOLDER + "\n\n---\n";
+				await this.app.vault.modify(inputFlowFile, output);
 			}
-		} else {
-			const current = await this.app.vault.read(inputFlowFile);
-			const output = current + "\n---\n" + PLACEHOLDER + "\n\n---\n";
-			await this.app.vault.modify(inputFlowFile, output);
 		}
 
 		const notice = new Notice(`Running ${flow} flow ...`, 0);
@@ -534,12 +537,57 @@ export default class CloudAtlasPlugin extends Plugin {
 
 		try {
 			const respJson = await this.flowToResponse(inputFlowFile, flow);
-			const currentNoteContents = await this.app.vault.read(
-				inputFlowFile
-			);
-			const output = currentNoteContents.replace(PLACEHOLDER, respJson);
 
-			this.app.vault.modify(inputFlowFile, output);
+			if (this.settings.createNewFile) {
+				// Generate a filename using the template
+				const outputFileName = this.generateFlowOutputFilename(
+					inputFlowFile,
+					flow
+				);
+				const folderPath = inputFlowFile.parent?.path || "";
+				const outputPath = normalizePath(`${folderPath}/${outputFileName}`);
+
+				// Create content with original selection (if any) and response
+				let content = "";
+
+				// Add metadata with link to source
+				const timestamp = new Date().toISOString();
+				content += `---
+source: "[[${inputFlowFile.path}|${inputFlowFile.basename}]]"
+flow: "${flow}"
+created: "${timestamp}"
+---
+
+`;
+
+				content += `\n\n${respJson}\n\n`;
+
+				console.log("Output path", outputPath);
+
+				try {
+					await this.app.vault.create(outputPath, content);
+					// Open the new file
+					const newFile = getFileByPath(outputPath, this.app);
+					if (newFile) {
+						this.app.workspace.getLeaf().openFile(newFile);
+					}
+				} catch (e) {
+					console.error("Failed to create output file:", e);
+					new Notice(
+						"Failed to create output file. Check console for details."
+					);
+				}
+			} else {
+				// Original behavior: replace placeholder in the current file
+				const currentNoteContents = await this.app.vault.read(
+					inputFlowFile
+				);
+				const output = currentNoteContents.replace(
+					PLACEHOLDER,
+					respJson
+				);
+				this.app.vault.modify(inputFlowFile, output);
+			}
 		} catch (e) {
 			console.error(e);
 			notice.hide();
@@ -547,6 +595,25 @@ export default class CloudAtlasPlugin extends Plugin {
 		}
 		notice.hide();
 		clearTimeout(noticeTimeout);
+	};
+
+	// Generate a filename for flow output using the template
+	generateFlowOutputFilename = (file: TFile, flow: string): string => {
+		const basename = file.basename;
+		const template =
+			this.settings.outputFileTemplate ||
+			"${basename}-${flow}-${timestamp}";
+
+		const timestamp = Math.floor(Date.now() / 1000);
+
+		// Generate the filename without extension
+		const filenameWithoutExt = template
+			.replace("${basename}", basename)
+			.replace("${flow}", flow)
+			.replace("${timestamp}", timestamp.toString());
+		
+		// Normalize the path to ensure it's valid
+		return normalizePath(filenameWithoutExt) + ".md";
 	};
 
 	readNote = async (filePath: string): Promise<string> => {
@@ -1406,15 +1473,17 @@ export default class CloudAtlasPlugin extends Plugin {
 				file,
 				config.outputNameTemplate
 			);
-			const outputPath = `${folderPath}/${outputFilename}`;
+			const outputPath = normalizePath(`${folderPath}/${outputFilename}`);
 			try {
 				const existingFile = getFileByPath(outputPath, this.app);
 				if (existingFile) {
+					console.log("Modifying file:", outputPath);
 					await this.app.vault.modify(
 						existingFile,
 						resultWithSourceLink
 					);
 				} else {
+					console.log("Creating file:", outputPath);
 					await this.app.vault.create(
 						outputPath,
 						resultWithSourceLink
@@ -1476,7 +1545,8 @@ export default class CloudAtlasPlugin extends Plugin {
 
 	generateOutputFilename(file: TFile, template: string): string {
 		const basename = file.basename;
-		return template.replace("${basename}", basename) + ".md";
+		const filenameWithoutExt = template.replace("${basename}", basename);
+		return normalizePath(filenameWithoutExt) + ".md";
 	}
 
 	async setupAutoProcessing(folderPath: string) {

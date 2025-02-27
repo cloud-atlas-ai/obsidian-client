@@ -41,6 +41,8 @@ export const DEFAULT_SETTINGS: CloudAtlasPluginSettings = {
 	},
 	provider: "openai",
 	registeredFlows: [],
+	createNewFile: false,
+	outputFileTemplate: "${basename}-${flow}-${timestamp}",
 	autoProcessing: {
 		enabled: false,
 		defaultFlow: "example"

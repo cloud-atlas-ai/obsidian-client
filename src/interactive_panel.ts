@@ -8,6 +8,7 @@ import { extractLinksFromContent, fetchUrlContent } from "./utils";
 export const INTERACTIVE_PANEL_TYPE = "interactive-panel";
 
 let noticeTimeout: NodeJS.Timeout;
+let loadingIndicatorTimeout: NodeJS.Timeout;
 
 const animateNotice = (notice: Notice) => {
 	let message = notice.noticeEl.innerText;
@@ -23,6 +24,27 @@ const animateNotice = (notice: Notice) => {
 	}
 	notice.setMessage(message);
 	noticeTimeout = setTimeout(() => animateNotice(notice), 500);
+};
+
+const animateLoadingIndicator = (loadingIndicator: HTMLDivElement) => {
+	const message = loadingIndicator.textContent || "";
+	const baseMessage = "Waiting for response";
+	const dots = message.split(baseMessage)[1]?.split(".").length - 1 || 0;
+
+	if (dots === 0) {
+		loadingIndicator.setText(`${baseMessage} .  `);
+	} else if (dots === 1) {
+		loadingIndicator.setText(`${baseMessage} .. `);
+	} else if (dots === 2) {
+		loadingIndicator.setText(`${baseMessage} ...`);
+	} else {
+		loadingIndicator.setText(`${baseMessage}    `);
+	}
+
+	loadingIndicatorTimeout = setTimeout(
+		() => animateLoadingIndicator(loadingIndicator),
+		500
+	);
 };
 
 export class InteractivePanel extends ItemView {
@@ -52,8 +74,11 @@ export class InteractivePanel extends ItemView {
 	setLoading(loading: boolean) {
 		if (loading) {
 			this.loadingIndicator.style.display = "block";
+			this.loadingIndicator.setText("Waiting for response    ");
+			animateLoadingIndicator(this.loadingIndicator);
 		} else {
 			this.loadingIndicator.style.display = "none";
+			clearTimeout(loadingIndicatorTimeout);
 		}
 	}
 
@@ -355,7 +380,10 @@ export class InteractivePanel extends ItemView {
 			cls: "loading-indicator",
 		});
 		setIcon(this.loadingIndicator, "sync");
-		this.loadingIndicator.setText(" Waiting for response");
+		this.loadingIndicator.setText("Waiting for response    ");
+		this.loadingIndicator.style.display = "flex";
+		this.loadingIndicator.style.alignItems = "center";
+		this.loadingIndicator.style.gap = "8px";
 		this.setLoading(false);
 	}
 
@@ -433,7 +461,7 @@ export class InteractivePanel extends ItemView {
 
 		const payload: Payload = {
 			model:
-				this.providerDropdown.value === "auto"
+				this.providerDropdown.value.toLowerCase() === "auto"
 					? null
 					: this.modelDropdown.value,
 			messages: history,
@@ -478,6 +506,7 @@ export class InteractivePanel extends ItemView {
 		} catch (error) {
 			this.setLoading(false);
 			notice.hide();
+			clearTimeout(noticeTimeout);
 			console.error("Failed to fetch response from Cloud Atlas:", error);
 			new Notice(
 				"Failed to send payload to Cloud Atlas. Check the console for more details."
@@ -490,6 +519,8 @@ export class InteractivePanel extends ItemView {
 	}
 
 	async onClose() {
-		// Nothing to clean up.
+		// Clean up timeouts
+		clearTimeout(noticeTimeout);
+		clearTimeout(loadingIndicatorTimeout);
 	}
 }

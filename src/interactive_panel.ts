@@ -37,6 +37,8 @@ export class InteractivePanel extends ItemView {
 	copyButton: HTMLButtonElement;
 	history: CaRequestMsg[];
 	promptTextbox: HTMLTextAreaElement;
+	providerDropdown: HTMLSelectElement;
+	modelDropdown: HTMLSelectElement;
 
 	constructor(leaf: WorkspaceLeaf, plugin: CloudAtlasPlugin) {
 		super(leaf);
@@ -75,6 +77,112 @@ export class InteractivePanel extends ItemView {
 		this.containerEl.appendChild(promptTextbox);
 		this.promptTextbox = promptTextbox;
 		return promptTextbox;
+	}
+
+	createProviderModelDropdowns() {
+		// Create a container for the dropdowns
+		const dropdownContainer = document.createElement("div");
+		dropdownContainer.classList.add("ca-dropdown-container");
+		dropdownContainer.style.display = "flex";
+		dropdownContainer.style.gap = "10px";
+		dropdownContainer.style.marginBottom = "10px";
+
+		// Create provider dropdown
+		const providerContainer = document.createElement("div");
+		providerContainer.style.flex = "1";
+
+		const providerLabel = document.createElement("label");
+		providerLabel.textContent = "Provider:";
+		providerLabel.style.display = "block";
+		providerLabel.style.marginBottom = "4px";
+		providerContainer.appendChild(providerLabel);
+
+		const providerDropdown = document.createElement("select");
+		providerDropdown.classList.add("ca-provider-dropdown");
+		providerDropdown.style.width = "100%";
+
+		// Add provider options
+		const providerOptions = ["Auto", "OpenAi", "Perplexity"];
+		providerOptions.forEach((provider) => {
+			const option = document.createElement("option");
+			option.value = provider;
+			option.text = provider;
+			providerDropdown.appendChild(option);
+		});
+
+		providerContainer.appendChild(providerDropdown);
+		dropdownContainer.appendChild(providerContainer);
+
+		// Create model dropdown
+		const modelContainer = document.createElement("div");
+		modelContainer.style.flex = "1";
+
+		const modelLabel = document.createElement("label");
+		modelLabel.textContent = "Model:";
+		modelLabel.style.display = "block";
+		modelLabel.style.marginBottom = "4px";
+		modelContainer.appendChild(modelLabel);
+
+		const modelDropdown = document.createElement("select");
+		modelDropdown.classList.add("ca-model-dropdown");
+		modelDropdown.style.width = "100%";
+
+		// Initially populate with OpenAI models
+		this.updateModelDropdown(modelDropdown, "auto");
+
+		modelContainer.appendChild(modelDropdown);
+		dropdownContainer.appendChild(modelContainer);
+
+		// Add event listener to update model dropdown when provider changes
+		providerDropdown.addEventListener("change", () => {
+			this.updateModelDropdown(modelDropdown, providerDropdown.value);
+		});
+
+		this.providerDropdown = providerDropdown;
+		this.modelDropdown = modelDropdown;
+
+		return dropdownContainer;
+	}
+
+	updateModelDropdown(modelDropdown: HTMLSelectElement, provider: string) {
+		// Clear existing options
+		modelDropdown.innerHTML = "";
+
+		// Add model options based on selected provider
+		let modelOptions: string[] = [];
+
+		if (provider.toLowerCase() === "auto") {
+			modelDropdown.disabled = true;
+			const option = document.createElement("option");
+			option.value = "";
+			option.text = "--";
+			modelDropdown.appendChild(option);
+		} else if (provider.toLowerCase() === "openai") {
+			modelDropdown.disabled = false;
+			modelOptions = [
+				"o3-mini",
+				"o3-mini-high",
+				"o1",
+				"gpt-4o",
+				"gpt-4.5-preview",
+			];
+		} else if (provider.toLowerCase() === "perplexity") {
+			modelDropdown.disabled = false;
+			modelOptions = [
+				"sonar-pro",
+				"sonar-reasoning",
+				"sonar-reasoning-pro",
+				"sonar-deep-research",
+				"sonar",
+			];
+		}
+
+		modelOptions.forEach((model) => {
+			const option = document.createElement("option");
+			option.value = model;
+			option.text = model;
+			modelDropdown.appendChild(option);
+		});
 	}
 
 	createAttachedFilesList() {
@@ -121,6 +229,10 @@ export class InteractivePanel extends ItemView {
 		const container = this.containerEl.children[1];
 		container.empty();
 		container.createEl("h4", { text: "Cloud Atlas Interactive Mode" });
+
+		// Add provider and model dropdowns
+		const dropdownContainer = this.createProviderModelDropdowns();
+		container.appendChild(dropdownContainer);
 
 		// Create the user prompt text box
 		const prompt = this.createUserPromptTextbox();
@@ -320,14 +432,19 @@ export class InteractivePanel extends ItemView {
 		history.push(requestMsg);
 
 		const payload: Payload = {
-			model: null,
+			model:
+				this.providerDropdown.value === "auto"
+					? null
+					: this.modelDropdown.value,
 			messages: history,
 			options: {
 				generate_embeddings: this.settings.generateEmbeddings,
 				entity_recognition: this.settings.entityRecognition,
 				wikify: this.settings.wikify,
 			},
-			provider: this.settings.autoModel
+			provider: this.providerDropdown.value
+				? this.providerDropdown.value.toLowerCase()
+				: this.settings.autoModel
 				? "auto"
 				: this.settings.useOpenAi
 				? "openai"
@@ -354,8 +471,8 @@ export class InteractivePanel extends ItemView {
 			const responseMsg: CaRequestMsg = {
 				user: null,
 				assistant: responseText,
-				system: null
-			}
+				system: null,
+			};
 			this.history.push(responseMsg);
 			this.copyButton.show();
 		} catch (error) {

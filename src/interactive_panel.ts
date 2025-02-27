@@ -1,7 +1,7 @@
 import { ItemView, Notice, WorkspaceLeaf, setIcon } from "obsidian";
 import CloudAtlasPlugin from "./main";
 
-import { Payload } from "./interfaces";
+import { CaRequestMsg, Payload, User } from "./interfaces";
 import ShortUniqueId from "short-unique-id";
 import { extractLinksFromContent, fetchUrlContent } from "./utils";
 
@@ -35,12 +35,15 @@ export class InteractivePanel extends ItemView {
 	responseCode: HTMLElement;
 	loadingIndicator: HTMLDivElement;
 	copyButton: HTMLButtonElement;
+	history: CaRequestMsg[];
+	promptTextbox: HTMLTextAreaElement;
 
 	constructor(leaf: WorkspaceLeaf, plugin: CloudAtlasPlugin) {
 		super(leaf);
 		this.plugin = plugin;
 		this.settings = this.plugin.settings;
 		this.attachedFiles = new Set(); // Initialize the Set
+		this.history = [];
 		// attachedFilesListEl will be set in onOpen
 	}
 
@@ -70,6 +73,7 @@ export class InteractivePanel extends ItemView {
 		promptTextbox.placeholder = "Enter your prompt here...";
 		promptTextbox.classList.add("ca-interactive-prompt-textbox");
 		this.containerEl.appendChild(promptTextbox);
+		this.promptTextbox = promptTextbox;
 		return promptTextbox;
 	}
 
@@ -85,6 +89,10 @@ export class InteractivePanel extends ItemView {
 		filesList.style.height = "200px"; // Set a fixed height
 		filesList.style.overflowY = "auto"; // Make it scrollable
 		return filesList;
+	}
+
+	emptyAttachedFilesList(filesList: HTMLElement) {
+		filesList.empty();
 	}
 
 	// Function to update the attached files list
@@ -167,7 +175,22 @@ export class InteractivePanel extends ItemView {
 				new Notice("Please enter a prompt before sending.");
 				return;
 			}
-			await this.handleSendClick(prompt.value);
+			await this.handleSendClick(prompt.value, this.history);
+			this.emptyAttachedFilesList(this.attachedFilesListEl);
+		});
+
+		const newInteractiveButton = actionButtonContainer.createEl("button", {
+			cls: "ca-new-interactive-button cloud-atlas-flow-btn-primary",
+			text: "New Interactive",
+		});
+
+		setIcon(newInteractiveButton, "plus");
+
+		newInteractiveButton.addEventListener("click", () => {
+			this.emptyAttachedFilesList(this.attachedFilesListEl);
+			this.history = [];
+			this.responsePre.innerHTML = "";
+			this.promptTextbox.value = "";
 		});
 
 		// Keydown listener for Ctrl+Enter to submit the prompt
@@ -225,15 +248,80 @@ export class InteractivePanel extends ItemView {
 		this.setLoading(false);
 	}
 
-	private async handleSendClick(promptValue: string) {
+	private async handleSendClick(
+		promptValue: string,
+		history: CaRequestMsg[]
+	) {
 		// Build the payload using the promptValue and attached files
-		const payload: Payload = {
-			user: {
-				user_prompt: promptValue,
-				input: "See Additional Context and Respond to Prompt",
-				additional_context: {},
-			},
+		const user: User = {
+			user_prompt: promptValue,
+			input: "See Additional Context and Respond to Prompt",
+			additional_context: {},
+		};
+
+		// Add contents from attached files to the payload's additional context
+		if (!user.additional_context) {
+			user.additional_context = {};
+		}
+
+		for (const filePath of this.attachedFiles) {
+			const fileContent = await this.plugin.readAndFilterContent(
+				filePath,
+				[]
+			);
+			if (fileContent !== null) {
+				user.additional_context[filePath] = fileContent;
+
+				// Expand URLs in attached files if enabled
+				if (this.settings.interactivePanel.expandUrls) {
+					const urls = extractLinksFromContent(fileContent);
+					for (const url of urls) {
+						const content = await fetchUrlContent(url);
+						if (content) {
+							user.additional_context[url] = content;
+						}
+					}
+				}
+
+				// Resolve links if enabled
+				if (this.settings.interactivePanel.resolveLinks) {
+					const resolvedLinks = await this.plugin.resolveLinksForPath(
+						filePath,
+						[]
+					);
+					Object.assign(user.additional_context, resolvedLinks);
+				}
+
+				// Resolve backlinks if enabled
+				if (this.settings.interactivePanel.resolveBacklinks) {
+					const resolvedBacklinks =
+						await this.plugin.resolveBacklinksForPath(filePath, []);
+					Object.assign(user.additional_context, resolvedBacklinks);
+				}
+			}
+		}
+
+		// Extract and expand URLs from the prompt text itself if enabled
+		if (this.settings.interactivePanel.expandUrls) {
+			const promptUrls = extractLinksFromContent(promptValue);
+			for (const url of promptUrls) {
+				const content = await fetchUrlContent(url);
+				if (content) {
+					user.additional_context[url] = content;
+				}
+			}
+		}
+
+		const requestMsg: CaRequestMsg = {
+			user,
 			system: null,
+			assistant: null,
+		};
+
+		history.push(requestMsg);
+
+		const payload: Payload = {
+			messages: history,
 			options: {
 				generate_embeddings: this.settings.generateEmbeddings,
 				entity_recognition: this.settings.entityRecognition,
@@ -250,66 +338,6 @@ export class InteractivePanel extends ItemView {
 			},
 			requestId: new ShortUniqueId({ length: 10 }).rnd(),
 		};
-
-		// Add contents from attached files to the payload's additional context
-		if (!payload.user.additional_context) {
-			payload.user.additional_context = {};
-		}
-
-		// Process attached files
-		for (const filePath of this.attachedFiles) {
-			const fileContent = await this.plugin.readAndFilterContent(
-				filePath,
-				[]
-			);
-			if (fileContent !== null) {
-				payload.user.additional_context[filePath] = fileContent;
-
-				// Expand URLs in attached files if enabled
-				if (this.settings.interactivePanel.expandUrls) {
-					const urls = extractLinksFromContent(fileContent);
-					for (const url of urls) {
-						const content = await fetchUrlContent(url);
-						if (content) {
-							payload.user.additional_context[url] = content;
-						}
-					}
-				}
-
-				// Resolve links if enabled
-				if (this.settings.interactivePanel.resolveLinks) {
-					const resolvedLinks = await this.plugin.resolveLinksForPath(
-						filePath,
-						[]
-					);
-					Object.assign(
-						payload.user.additional_context,
-						resolvedLinks
-					);
-				}
-
-				// Resolve backlinks if enabled
-				if (this.settings.interactivePanel.resolveBacklinks) {
-					const resolvedBacklinks =
-						await this.plugin.resolveBacklinksForPath(filePath, []);
-					Object.assign(
-						payload.user.additional_context,
-						resolvedBacklinks
-					);
-				}
-			}
-		}
-
-		// Extract and expand URLs from the prompt text itself if enabled
-		if (this.settings.interactivePanel.expandUrls) {
-			const promptUrls = extractLinksFromContent(promptValue);
-			for (const url of promptUrls) {
-				const content = await fetchUrlContent(url);
-				if (content) {
-					payload.user.additional_context[url] = content;
-				}
-			}
-		}
 
 		this.setLoading(true);
 		const notice = new Notice(`Running Interactive flow ...`, 0);

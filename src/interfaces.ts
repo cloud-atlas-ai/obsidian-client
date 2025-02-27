@@ -4,8 +4,7 @@ export interface LlmOptions {
 }
 
 export interface Payload {
-	user: User;
-	system: string | null;
+	messages: CaRequestMsg[];
 	options: Options;
 	provider: "azureai" | "openai" | "vertexai" | string;
 	llmOptions: LlmOptions;
@@ -14,6 +13,12 @@ export interface Payload {
 	// V2 is the async version through Supabase
 	// If not set, defaults to V1 serverside
 	version?: "V1" | "V2";
+}
+
+export interface CaRequestMsg {
+	user: User
+	system: string | null
+	assistant: string | null
 }
 
 export interface Options {

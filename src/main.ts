@@ -37,6 +37,7 @@ import {
 	LlmOptions,
 	ResponseRow,
 	AutoProcessingConfig,
+	CaRequestMsg,
 } from "./interfaces";
 import { v4 as uuidv4 } from "uuid";
 import {
@@ -138,10 +139,15 @@ export default class CloudAtlasPlugin extends Plugin {
 		input: string | null
 	): Promise<PayloadConfig | null> => {
 		const uniquePaths = [...new Set(paths)];
+		const user = { input, user_prompt: null };
+		const caRequestMsg: CaRequestMsg = {
+			user,
+			system: null,
+			assistant: null,
+		};
 		const payloadConfig: PayloadConfig = {
 			payload: {
-				user: { input, user_prompt: null },
-				system: null,
+				messages: [caRequestMsg],
 				options: {
 					generate_embeddings: this.settings.generateEmbeddings,
 					entity_recognition: this.settings.entityRecognition,
@@ -309,9 +315,13 @@ export default class CloudAtlasPlugin extends Plugin {
 
 			user.additional_context = additionalContext;
 
-			const data = {
+			const caRequestMsg: CaRequestMsg = {
 				user,
+				assistant: null,
 				system: flowConfig.system_instructions,
+			};
+			const data = {
+				messages: [caRequestMsg],
 				options: {
 					entity_recognition:
 						previousPayload.options.entity_recognition,
@@ -836,7 +846,7 @@ export default class CloudAtlasPlugin extends Plugin {
 		}
 
 		const batch = Object.keys(
-			data.payload.user.additional_context as object
+			data.payload.messages[0].user.additional_context as object
 		).filter((key) => key.endsWith(".index.md"));
 		const payloadsQueue = [];
 		if (batch.length == 1) {
@@ -989,10 +999,15 @@ export default class CloudAtlasPlugin extends Plugin {
 			additional_context,
 		};
 
+		const caRequestMsg: CaRequestMsg = {
+			user,
+			system: system_instructions.join("\n"),
+			assistant: null,
+		};
+
 		return {
 			payload: {
-				user: user,
-				system: system_instructions.join("\n"),
+				messages: [caRequestMsg],
 				options: {
 					entity_recognition: this.settings.entityRecognition,
 					generate_embeddings: this.settings.generateEmbeddings,

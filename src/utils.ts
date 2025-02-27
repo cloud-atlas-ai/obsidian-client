@@ -1,5 +1,5 @@
 import WordExtractor from "word-extractor";
-import { AdditionalContext, Payload, User } from "./interfaces";
+import { AdditionalContext, CaRequestMsg, Payload, User } from "./interfaces";
 import {
 	App,
 	LinkCache,
@@ -59,13 +59,13 @@ export function combinePayloads(
 		return base;
 	}
 	const additional_context: AdditionalContext = {};
-	Object.assign(additional_context, base.user.additional_context);
-	Object.assign(additional_context, override.user.additional_context);
+	Object.assign(additional_context, base.messages[base.messages.length - 1].user.additional_context);
+	Object.assign(additional_context, override.messages[override.messages.length - 1].user.additional_context);
 
-	const input = joinStrings(base.user.input, override.user.input);
+	const input = joinStrings(base.messages[base.messages.length - 1].user.input, override.messages[override.messages.length - 1].user.input);
 	const user_prompt = joinStrings(
-		base.user.user_prompt,
-		override.user.user_prompt
+		base.messages[base.messages.length - 1].user.user_prompt,
+		override.messages[override.messages.length - 1].user.user_prompt
 	);
 
 	const user: User = {
@@ -74,9 +74,15 @@ export function combinePayloads(
 		additional_context,
 	};
 
-	return {
+	const caRequestMsg: CaRequestMsg = {
 		user,
-		system: override.system || base.system,
+		system: override.messages[override.messages.length - 1].system || base.messages[base.messages.length - 1].system,
+		assistant: override.messages[override.messages.length - 1].assistant || base.messages[base.messages.length - 1].assistant,
+		
+	};
+
+	return {
+		messages: [caRequestMsg],
 		options: override.options || base.options,
 		provider: override.provider || base.provider,
 		llmOptions: override.llmOptions || base.llmOptions,

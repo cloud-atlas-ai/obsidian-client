@@ -281,17 +281,17 @@ export class CloudAtlasGlobalSettingsTab extends PluginSettingTab {
 			new Setting(containerEl)
 				.setName("LLM max response tokens")
 				.setDesc(
-					"Set maximum tokens returned in the response, defaults to 2000, and maximum is 4096."
+					"Set maximum tokens returned in the response, defaults to 2000, and maximum is 200000."
 				)
 				.addText((text) =>
 					text
 						.setValue(
 							this.plugin.settings.llmOptions.max_tokens?.toString() ||
-								"2000"
+								"5000"
 						)
 						.onChange(async (value) => {
 							const v =
-								Number(value) > 4096 ? 4096 : Number(value);
+								Number(value) > 200000 ? 200000 : Number(value);
 							this.plugin.settings.llmOptions.max_tokens = v;
 							await this.plugin.saveSettings();
 						})
@@ -397,10 +397,12 @@ export class CloudAtlasGlobalSettingsTab extends PluginSettingTab {
 
 			// Add Auto-Processing section
 			containerEl.createEl("h2", { text: "Auto-Processing" });
-			
+
 			new Setting(containerEl)
 				.setName("Enable Auto-Processing")
-				.setDesc("Automatically process files added to 'sources' subfolders")
+				.setDesc(
+					"Automatically process files added to 'sources' subfolders"
+				)
 				.addToggle((toggle) =>
 					toggle
 						.setValue(this.plugin.settings.autoProcessing.enabled)
@@ -416,12 +418,15 @@ export class CloudAtlasGlobalSettingsTab extends PluginSettingTab {
 					.setDesc("The default flow to use for auto-processing")
 					.addDropdown((dropdown) => {
 						// Add all registered flows to the dropdown
-						this.plugin.settings.registeredFlows.forEach(flow => {
+						this.plugin.settings.registeredFlows.forEach((flow) => {
 							dropdown.addOption(flow, flow);
 						});
-						dropdown.setValue(this.plugin.settings.autoProcessing.defaultFlow);
+						dropdown.setValue(
+							this.plugin.settings.autoProcessing.defaultFlow
+						);
 						dropdown.onChange(async (value) => {
-							this.plugin.settings.autoProcessing.defaultFlow = value;
+							this.plugin.settings.autoProcessing.defaultFlow =
+								value;
 							await this.plugin.saveSettings();
 						});
 					});
@@ -429,39 +434,55 @@ export class CloudAtlasGlobalSettingsTab extends PluginSettingTab {
 
 			// Interactive Panel Settings
 			containerEl.createEl("h2", { text: "Interactive Panel" });
-			
+
 			new Setting(containerEl)
 				.setName("Resolve links")
-				.setDesc("Add linked notes as additional context in interactive panel")
+				.setDesc(
+					"Add linked notes as additional context in interactive panel"
+				)
 				.addToggle((toggle) =>
 					toggle
-						.setValue(this.plugin.settings.interactivePanel.resolveLinks)
+						.setValue(
+							this.plugin.settings.interactivePanel.resolveLinks
+						)
 						.onChange(async (value) => {
-							this.plugin.settings.interactivePanel.resolveLinks = value;
+							this.plugin.settings.interactivePanel.resolveLinks =
+								value;
 							await this.plugin.saveSettings();
 						})
 				);
-			
+
 			new Setting(containerEl)
 				.setName("Resolve backlinks")
-				.setDesc("Add backlinks as additional context in interactive panel")
+				.setDesc(
+					"Add backlinks as additional context in interactive panel"
+				)
 				.addToggle((toggle) =>
 					toggle
-						.setValue(this.plugin.settings.interactivePanel.resolveBacklinks)
+						.setValue(
+							this.plugin.settings.interactivePanel
+								.resolveBacklinks
+						)
 						.onChange(async (value) => {
-							this.plugin.settings.interactivePanel.resolveBacklinks = value;
+							this.plugin.settings.interactivePanel.resolveBacklinks =
+								value;
 							await this.plugin.saveSettings();
 						})
 				);
 
 			new Setting(containerEl)
 				.setName("Expand URLs")
-				.setDesc("Fetch and include content from URLs found in notes and prompt")
+				.setDesc(
+					"Fetch and include content from URLs found in notes and prompt"
+				)
 				.addToggle((toggle) =>
 					toggle
-						.setValue(this.plugin.settings.interactivePanel.expandUrls)
+						.setValue(
+							this.plugin.settings.interactivePanel.expandUrls
+						)
 						.onChange(async (value) => {
-							this.plugin.settings.interactivePanel.expandUrls = value;
+							this.plugin.settings.interactivePanel.expandUrls =
+								value;
 							await this.plugin.saveSettings();
 						})
 				);

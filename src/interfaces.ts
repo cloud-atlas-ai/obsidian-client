@@ -6,7 +6,7 @@ export interface LlmOptions {
 export interface Payload {
 	messages: CaRequestMsg[];
 	options: Options;
-	provider: "azureai" | "openai" | "vertexai" | string;
+	provider: "auto" | "openai" | "vertexai" | string;
 	llmOptions: LlmOptions;
 	requestId: string;
 	// V1 is the legacy sync version
@@ -16,7 +16,7 @@ export interface Payload {
 }
 
 export interface CaRequestMsg {
-	user: User
+	user: User | null
 	system: string | null
 	assistant: string | null
 }

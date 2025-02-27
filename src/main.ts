@@ -913,7 +913,7 @@ created: "${timestamp}"
 		}
 
 		const batch = Object.keys(
-			data.payload.messages[0].user.additional_context as object
+			data.payload.messages[0].user?.additional_context as object
 		).filter((key) => key.endsWith(".index.md"));
 		const payloadsQueue = [];
 		if (batch.length == 1) {
@@ -1080,7 +1080,9 @@ created: "${timestamp}"
 					generate_embeddings: this.settings.generateEmbeddings,
 					wikify: this.settings.wikify,
 				},
-				provider: this.settings.useOpenAi
+				provider: this.settings.autoModel
+					? "auto"
+					: this.settings.useOpenAi
 					? "openai"
 					: this.settings.useVertexAi
 					? "vertexai"

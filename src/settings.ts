@@ -36,6 +36,7 @@ export interface CloudAtlasPluginSettings {
 	};
 	createNewFile: boolean;
 	outputFileTemplate: string;
+	autoModel: boolean;
 }
 
 export class CloudAtlasGlobalSettingsTab extends PluginSettingTab {
@@ -182,6 +183,7 @@ export class CloudAtlasGlobalSettingsTab extends PluginSettingTab {
 		if (this.plugin.settings.provider === "cloudatlas") {
 			containerEl.createEl("h2", { text: "Cloud Atlas" });
 
+			
 			new Setting(containerEl)
 				.setName("Cloud Atlas API Key")
 				.setDesc("Use Cloud Atlas backend service")
@@ -207,6 +209,20 @@ export class CloudAtlasGlobalSettingsTab extends PluginSettingTab {
 						.setValue(this.plugin.settings.previewMode)
 						.onChange(async (value) => {
 							this.plugin.settings.previewMode = value;
+							await this.plugin.saveSettings();
+						})
+				);
+
+			new Setting(containerEl)
+				.setName("Use best model for the flow")
+				.setDesc(
+					"Let Cloud Atlas choose the best model for each flow based on its requirements."
+				)
+				.addToggle((toggle) =>
+					toggle
+						.setValue(this.plugin.settings.autoModel || false)
+						.onChange(async (value) => {
+							this.plugin.settings.autoModel = value;
 							await this.plugin.saveSettings();
 						})
 				);

@@ -51,7 +51,8 @@ export const DEFAULT_SETTINGS: CloudAtlasPluginSettings = {
 		resolveLinks: false,
 		resolveBacklinks: false,
 		expandUrls: false
-	}
+	},
+	autoModel: false
 };
 
 export const exampleFlowString = `---

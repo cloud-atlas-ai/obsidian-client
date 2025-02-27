@@ -38,6 +38,7 @@ import {
 	ResponseRow,
 	AutoProcessingConfig,
 	CaRequestMsg,
+	FlowResponse,
 } from "./interfaces";
 import { v4 as uuidv4 } from "uuid";
 import {
@@ -153,11 +154,14 @@ export default class CloudAtlasPlugin extends Plugin {
 					entity_recognition: this.settings.entityRecognition,
 					wikify: this.settings.wikify,
 				},
-				provider: this.settings.useOpenAi
+				provider: this.settings.autoModel
+					? "auto"
+					: this.settings.useOpenAi
 					? "openai"
 					: this.settings.useVertexAi
 					? "vertexai"
 					: "azureai",
+				model: null,
 				llmOptions: {
 					temperature: this.settings.llmOptions.temperature,
 					max_tokens: this.settings.llmOptions.max_tokens,
@@ -218,6 +222,7 @@ export default class CloudAtlasPlugin extends Plugin {
 
 		try {
 			const flowConfig = await this.flowConfigFromPath(filePath);
+			console.log(flowConfig);
 			const flowFile = getFileByPath(filePath, this.app);
 
 			// Inherit booleans unless specifically defined.
@@ -322,6 +327,7 @@ export default class CloudAtlasPlugin extends Plugin {
 			};
 			const data = {
 				messages: [caRequestMsg],
+				model: flowConfig.model || previousPayload.model,
 				options: {
 					entity_recognition:
 						previousPayload.options.entity_recognition,
@@ -330,7 +336,7 @@ export default class CloudAtlasPlugin extends Plugin {
 					wikify: previousPayload.options.wikify,
 				},
 				// Use the model to set the provider if available
-				provider: flowConfig.model || previousPayload.provider,
+				provider: previousPayload.provider,
 				llmOptions: {
 					temperature:
 						Number(flowConfig.llmOptions.temperature) ||
@@ -401,8 +407,9 @@ export default class CloudAtlasPlugin extends Plugin {
 	flowToResponse = async (
 		path: TFile,
 		flow: string,
-		isCapability: boolean = false
-	): Promise<string> => {
+		isCapability: boolean = false,
+		override_model?: string | null
+	): Promise<FlowResponse> => {
 		const payloadConfig = await this.collectInputsIntoPayload(
 			null,
 			path,
@@ -412,6 +419,9 @@ export default class CloudAtlasPlugin extends Plugin {
 		if (!payloadConfig?.payload) {
 			throw new Error("Could not construct payload!");
 		}
+
+		payloadConfig.payload.model =
+			override_model || payloadConfig.config.model;
 
 		let respJson = await this.apiFetch(payloadConfig.payload);
 
@@ -424,18 +434,20 @@ export default class CloudAtlasPlugin extends Plugin {
 				const flow = flows[i];
 				if (i === 0) {
 					// this is the first post delegation flow, it needs to run on the original file
-					respJson = await this.flowToResponse(path, flow);
+					respJson = (await this.flowToResponse(path, flow)).response;
 				} else {
 					try {
 						const tempFilePath = `CloudAtlas/temp/${payloadConfig.payload.requestId}_response.json`;
 						await this.createFolder("CloudAtlas/temp");
 						await this.app.vault.create(tempFilePath, respJson);
 						console.log(`Saved response to ${tempFilePath}`);
-						respJson = await this.flowToResponse(
-							await getFileByPath(tempFilePath, this.app),
-							flow,
-							true
-						);
+						respJson = (
+							await this.flowToResponse(
+								await getFileByPath(tempFilePath, this.app),
+								flow,
+								true
+							)
+						).response;
 					} catch (error) {
 						console.error(
 							"Failed to save response to temp file:",
@@ -446,7 +458,11 @@ export default class CloudAtlasPlugin extends Plugin {
 			}
 		}
 
-		return respJson;
+		return {
+			response: respJson,
+			config: payloadConfig.config,
+			payload: payloadConfig.payload,
+		};
 	};
 
 	deployFlow = async (flow: string): Promise<string> => {
@@ -536,16 +552,19 @@ export default class CloudAtlasPlugin extends Plugin {
 		animateNotice(notice);
 
 		try {
-			const respJson = await this.flowToResponse(inputFlowFile, flow);
+			const flowResponse = await this.flowToResponse(inputFlowFile, flow);
 
 			if (this.settings.createNewFile) {
 				// Generate a filename using the template
 				const outputFileName = this.generateFlowOutputFilename(
 					inputFlowFile,
-					flow
+					flow,
+					flowResponse.payload.model || "unknown"
 				);
 				const folderPath = inputFlowFile.parent?.path || "";
-				const outputPath = normalizePath(`${folderPath}/${outputFileName}`);
+				const outputPath = normalizePath(
+					`${folderPath}/${outputFileName}`
+				);
 
 				// Create content with original selection (if any) and response
 				let content = "";
@@ -556,11 +575,12 @@ export default class CloudAtlasPlugin extends Plugin {
 source: "[[${inputFlowFile.path}|${inputFlowFile.basename}]]"
 flow: "${flow}"
 created: "${timestamp}"
+model: "${flowResponse.payload.model || "unknown"}"
 ---
 
 `;
 
-				content += `\n\n${respJson}\n\n`;
+				content += `\n\n${flowResponse.response}\n\n`;
 
 				console.log("Output path", outputPath);
 
@@ -584,7 +604,7 @@ created: "${timestamp}"
 				);
 				const output = currentNoteContents.replace(
 					PLACEHOLDER,
-					respJson
+					flowResponse.response
 				);
 				this.app.vault.modify(inputFlowFile, output);
 			}
@@ -598,11 +618,13 @@ created: "${timestamp}"
 	};
 
 	// Generate a filename for flow output using the template
-	generateFlowOutputFilename = (file: TFile, flow: string): string => {
+	generateFlowOutputFilename = (
+		file: TFile,
+		flow: string,
+		model: string
+	): string => {
 		const basename = file.basename;
-		const template =
-			this.settings.outputFileTemplate ||
-			"${basename}-${flow}-${timestamp}";
+		const template = this.settings.outputFileTemplate;
 
 		const timestamp = Math.floor(Date.now() / 1000);
 
@@ -610,8 +632,9 @@ created: "${timestamp}"
 		const filenameWithoutExt = template
 			.replace("${basename}", basename)
 			.replace("${flow}", flow)
+			.replace("${model}", model)
 			.replace("${timestamp}", timestamp.toString());
-		
+
 		// Normalize the path to ensure it's valid
 		return normalizePath(filenameWithoutExt) + ".md";
 	};
@@ -638,10 +661,12 @@ created: "${timestamp}"
 				const flowrunPat = path.split(".");
 				const flowName = flowrunPat[flowrunPat.length - 3];
 				console.log(flowName);
-				return await this.flowToResponse(
-					getFileByPath(path, this.app),
-					flowName
-				);
+				return (
+					await this.flowToResponse(
+						getFileByPath(path, this.app),
+						flowName
+					)
+				).response;
 			}
 			if (isCanvasFlow(path)) {
 				return await this.canvasOps(getFileByPath(path, this.app));
@@ -1075,6 +1100,7 @@ created: "${timestamp}"
 		return {
 			payload: {
 				messages: [caRequestMsg],
+				model: null,
 				options: {
 					entity_recognition: this.settings.entityRecognition,
 					generate_embeddings: this.settings.generateEmbeddings,
@@ -1464,16 +1490,22 @@ created: "${timestamp}"
 		try {
 			// Process file with the specified flow
 			console.log(`Processing with flow: ${config.flow}`);
-			const result = await this.flowToResponse(file, config.flow);
+			const result = await this.flowToResponse(
+				file,
+				config.flow,
+				false,
+				config.model
+			);
 
 			// Add source file link to the result
 			const sourceLink = `\n\n---\nSource: [[${file.path}|${file.basename}]]`;
 			const resultWithSourceLink = result + sourceLink;
 
 			// Generate and save output file
-			const outputFilename = this.generateOutputFilename(
+			const outputFilename = this.generateFlowOutputFilename(
 				file,
-				config.outputNameTemplate
+				config.outputNameTemplate,
+				result.payload.model || "unknown"
 			);
 			const outputPath = normalizePath(`${folderPath}/${outputFilename}`);
 			try {
@@ -1530,6 +1562,7 @@ created: "${timestamp}"
 						flow:
 							metadata.frontmatter.flow ??
 							this.settings.autoProcessing.defaultFlow,
+						model: metadata.frontmatter.model,
 						outputNameTemplate:
 							metadata.frontmatter.outputNameTemplate ??
 							"${basename}-processed",
@@ -1545,18 +1578,14 @@ created: "${timestamp}"
 		return null;
 	}
 
-	generateOutputFilename(file: TFile, template: string): string {
-		const basename = file.basename;
-		const filenameWithoutExt = template.replace("${basename}", basename);
-		return normalizePath(filenameWithoutExt) + ".md";
-	}
-
 	async setupAutoProcessing(folderPath: string) {
 		// Create configuration file
 		const configContent = `---
 enabled: true
 flow: ${this.settings.autoProcessing.defaultFlow || "example"}
+model: o3-mini
 outputNameTemplate: \${basename}-processed
+
 ---
 
 # CloudAtlas Auto-Processing Configuration

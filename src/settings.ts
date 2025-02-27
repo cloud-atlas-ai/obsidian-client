@@ -183,7 +183,6 @@ export class CloudAtlasGlobalSettingsTab extends PluginSettingTab {
 		if (this.plugin.settings.provider === "cloudatlas") {
 			containerEl.createEl("h2", { text: "Cloud Atlas" });
 
-			
 			new Setting(containerEl)
 				.setName("Cloud Atlas API Key")
 				.setDesc("Use Cloud Atlas backend service")
@@ -228,24 +227,6 @@ export class CloudAtlasGlobalSettingsTab extends PluginSettingTab {
 				);
 
 			new Setting(containerEl)
-				.setName("Use OpenAI")
-				.setDesc(
-					"We use AzureAI by default, this will use OpenAI, models are identical, so there should not be a meaningful difference in results."
-				)
-				.addToggle((toggle) =>
-					toggle
-						.setValue(this.plugin.settings.useOpenAi)
-						.onChange(async (value) => {
-							this.plugin.settings.useOpenAi = value;
-							if (value === true) {
-								this.plugin.settings.useVertexAi = false;
-								this.display();
-							}
-							await this.plugin.saveSettings();
-						})
-				);
-
-			new Setting(containerEl)
 				.setName("Use VertexAi (Google Gemini)")
 				.setDesc(
 					"Use Google Gemini, currently Gemini 1.5 Pro with 2m token window"
@@ -277,24 +258,6 @@ export class CloudAtlasGlobalSettingsTab extends PluginSettingTab {
 			});
 		if (this.plugin.settings.advancedOptions) {
 			containerEl.createEl("h2", { text: "LLM" });
-
-			// new Setting(containerEl)
-			// 	.setName("LLM temperature")
-			// 	.setDesc(
-			// 		'Set default temperature for the LLM, the higher the temperature the more "creative" the LLM will be, default is usually around 0.8.'
-			// 	)
-			// 	.addText((text) =>
-			// 		text
-			// 			.setValue(
-			// 				this.plugin.settings.llmOptions.temperature?.toString() ||
-			// 					"0.8"
-			// 			)
-			// 			.onChange(async (value) => {
-			// 				this.plugin.settings.llmOptions.temperature =
-			// 					Number(value);
-			// 				await this.plugin.saveSettings();
-			// 			})
-			// 	);
 
 			new Setting(containerEl)
 				.setName("LLM max response tokens")
@@ -335,10 +298,10 @@ export class CloudAtlasGlobalSettingsTab extends PluginSettingTab {
 			if (this.plugin.settings.createNewFile) {
 				new Setting(containerEl)
 					.setName("Output file template")
-					.setDesc("Template for naming output files. Available variables: ${basename} (current file name), ${flow} (flow name), ${timestamp} (Unix timestamp for better sorting)")
+					.setDesc("Template for naming output files. Available variables: ${flow} ${model} ${basename} (current file name), ${timestamp} (Unix timestamp for better sorting)")
 					.addText((text) =>
 						text
-							.setValue(this.plugin.settings.outputFileTemplate || "${basename}-${flow}")
+							.setValue(this.plugin.settings.outputFileTemplate || "${model}-${flow}-${basename}-${timestamp}")
 							.onChange(async (value) => {
 								this.plugin.settings.outputFileTemplate = value;
 								await this.plugin.saveSettings();
@@ -409,6 +372,82 @@ export class CloudAtlasGlobalSettingsTab extends PluginSettingTab {
 								await this.plugin.saveSettings();
 							})
 					);
+
+				// Interactive Panel Settings
+				containerEl.createEl("h2", { text: "Interactive Panel" });
+
+				new Setting(containerEl)
+					.setName("Resolve links")
+					.setDesc(
+						"Add linked notes as additional context in interactive panel"
+					)
+					.addToggle((toggle) =>
+						toggle
+							.setValue(
+								this.plugin.settings.interactivePanel
+									.resolveLinks
+							)
+							.onChange(async (value) => {
+								this.plugin.settings.interactivePanel.resolveLinks =
+									value;
+								await this.plugin.saveSettings();
+							})
+					);
+
+				new Setting(containerEl)
+					.setName("Resolve backlinks")
+					.setDesc(
+						"Add backlinks as additional context in interactive panel"
+					)
+					.addToggle((toggle) =>
+						toggle
+							.setValue(
+								this.plugin.settings.interactivePanel
+									.resolveBacklinks
+							)
+							.onChange(async (value) => {
+								this.plugin.settings.interactivePanel.resolveBacklinks =
+									value;
+								await this.plugin.saveSettings();
+							})
+					);
+
+				new Setting(containerEl)
+					.setName("Expand URLs")
+					.setDesc(
+						"Fetch and include content from URLs found in notes and prompt"
+					)
+					.addToggle((toggle) =>
+						toggle
+							.setValue(
+								this.plugin.settings.interactivePanel.expandUrls
+							)
+							.onChange(async (value) => {
+								this.plugin.settings.interactivePanel.expandUrls =
+									value;
+								await this.plugin.saveSettings();
+							})
+					);
+
+				containerEl.createEl("h2", { text: "Auto-Processing" });
+
+				new Setting(containerEl)
+					.setName("Enable Auto-Processing")
+					.setDesc(
+						"Automatically process files added to 'sources' subfolders"
+					)
+					.addToggle((toggle) =>
+						toggle
+							.setValue(
+								this.plugin.settings.autoProcessing.enabled
+							)
+							.onChange(async (value) => {
+								this.plugin.settings.autoProcessing.enabled =
+									value;
+								await this.plugin.saveSettings();
+							})
+					);
+
 				containerEl.createEl("h2", { text: "Register commands" });
 				const vaultFiles = this.app.vault.getMarkdownFiles();
 				const cloudAtlasFlows = vaultFiles.filter(
@@ -444,98 +483,6 @@ export class CloudAtlasGlobalSettingsTab extends PluginSettingTab {
 						});
 				});
 			}
-
-			// Add Auto-Processing section
-			containerEl.createEl("h2", { text: "Auto-Processing" });
-
-			new Setting(containerEl)
-				.setName("Enable Auto-Processing")
-				.setDesc(
-					"Automatically process files added to 'sources' subfolders"
-				)
-				.addToggle((toggle) =>
-					toggle
-						.setValue(this.plugin.settings.autoProcessing.enabled)
-						.onChange(async (value) => {
-							this.plugin.settings.autoProcessing.enabled = value;
-							await this.plugin.saveSettings();
-						})
-				);
-
-			if (this.plugin.settings.autoProcessing.enabled) {
-				new Setting(containerEl)
-					.setName("Default Flow")
-					.setDesc("The default flow to use for auto-processing")
-					.addDropdown((dropdown) => {
-						// Add all registered flows to the dropdown
-						this.plugin.settings.registeredFlows.forEach((flow) => {
-							dropdown.addOption(flow, flow);
-						});
-						dropdown.setValue(
-							this.plugin.settings.autoProcessing.defaultFlow
-						);
-						dropdown.onChange(async (value) => {
-							this.plugin.settings.autoProcessing.defaultFlow =
-								value;
-							await this.plugin.saveSettings();
-						});
-					});
-			}
-
-			// Interactive Panel Settings
-			containerEl.createEl("h2", { text: "Interactive Panel" });
-
-			new Setting(containerEl)
-				.setName("Resolve links")
-				.setDesc(
-					"Add linked notes as additional context in interactive panel"
-				)
-				.addToggle((toggle) =>
-					toggle
-						.setValue(
-							this.plugin.settings.interactivePanel.resolveLinks
-						)
-						.onChange(async (value) => {
-							this.plugin.settings.interactivePanel.resolveLinks =
-								value;
-							await this.plugin.saveSettings();
-						})
-				);
-
-			new Setting(containerEl)
-				.setName("Resolve backlinks")
-				.setDesc(
-					"Add backlinks as additional context in interactive panel"
-				)
-				.addToggle((toggle) =>
-					toggle
-						.setValue(
-							this.plugin.settings.interactivePanel
-								.resolveBacklinks
-						)
-						.onChange(async (value) => {
-							this.plugin.settings.interactivePanel.resolveBacklinks =
-								value;
-							await this.plugin.saveSettings();
-						})
-				);
-
-			new Setting(containerEl)
-				.setName("Expand URLs")
-				.setDesc(
-					"Fetch and include content from URLs found in notes and prompt"
-				)
-				.addToggle((toggle) =>
-					toggle
-						.setValue(
-							this.plugin.settings.interactivePanel.expandUrls
-						)
-						.onChange(async (value) => {
-							this.plugin.settings.interactivePanel.expandUrls =
-								value;
-							await this.plugin.saveSettings();
-						})
-				);
 		}
 	}
 }

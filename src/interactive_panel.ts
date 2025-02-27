@@ -320,6 +320,7 @@ export class InteractivePanel extends ItemView {
 		history.push(requestMsg);
 
 		const payload: Payload = {
+			model: null,
 			messages: history,
 			options: {
 				generate_embeddings: this.settings.generateEmbeddings,

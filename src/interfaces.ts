@@ -3,10 +3,17 @@ export interface LlmOptions {
 	max_tokens?: number;
 }
 
+export interface FlowResponse {
+	response: string;
+	config: FlowConfig;
+	payload: Payload;
+}
+
 export interface Payload {
 	messages: CaRequestMsg[];
 	options: Options;
 	provider: "auto" | "openai" | "vertexai" | string;
+	model: string | null;
 	llmOptions: LlmOptions;
 	requestId: string;
 	// V1 is the legacy sync version
@@ -85,6 +92,7 @@ export interface AutoProcessingConfig {
 	flow: string;
 	outputNameTemplate: string; // e.g., "${basename}-processed"
 	expandUrls?: boolean;
+	model?: string | null;
 }
 
 export interface CloudAtlasPluginSettings {

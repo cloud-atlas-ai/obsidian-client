@@ -41,13 +41,27 @@ export const DEFAULT_SETTINGS: CloudAtlasPluginSettings = {
 	},
 	provider: "openai",
 	registeredFlows: [],
+	createNewFile: false,
+	outputFileTemplate: "${basename}-${flow}-${timestamp}",
+	autoProcessing: {
+		enabled: false,
+		defaultFlow: "example"
+	},
+	interactivePanel: {
+		resolveLinks: false,
+		resolveBacklinks: false,
+		expandUrls: false
+	},
+	autoModel: false
 };
 
 export const exampleFlowString = `---
 system_instructions: You are a helpful assistant.
 resolveBacklinks: true
 resolveForwardLinks: true
+expandUrls: true
 exclusionPattern: ["^Private/", ".*-confidential.*"]
+can_delegate: false
 ---
 
 Say hello to the user.

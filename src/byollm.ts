@@ -9,39 +9,41 @@ export interface RequestMsg {
 
 function payloadToMessages(payload: Payload): RequestMsg[] {
 	const messages = [];
-	if (payload.system) {
-		const system_msg: RequestMsg = {
-			role: "system",
-			content: payload.system || "",
-		};
-		messages.push(system_msg);
-	}
-	if (payload.user?.user_prompt) {
-		const user_prompt_msg: RequestMsg = {
-			role: "user",
-			content: payload.user?.user_prompt || "",
-		};
-		messages.push(user_prompt_msg);
-	}
-
-	if (payload.user?.additional_context) {
-		for (const [key, value] of Object.entries(
-			payload.user?.additional_context
-		)) {
-			const additional_context_msg: RequestMsg = {
-				role: "user",
-				content: `additional_context -${key}: ${value}\n`,
+	for (const p of payload.messages) {
+		if (p.system) {
+			const system_msg: RequestMsg = {
+				role: "system",
+				content: p.system || "",
 			};
-			messages.push(additional_context_msg);
+			messages.push(system_msg);
 		}
+		if (p.user?.user_prompt) {
+			const user_prompt_msg: RequestMsg = {
+				role: "user",
+				content: p.user?.user_prompt || "",
+			};
+			messages.push(user_prompt_msg);
+		}
+
+		if (p.user?.additional_context) {
+			for (const [key, value] of Object.entries(
+				p.user?.additional_context
+			)) {
+				const additional_context_msg: RequestMsg = {
+					role: "user",
+					content: `additional_context -${key}: ${value}\n`,
+				};
+				messages.push(additional_context_msg);
+			}
+		}
+
+		const input_msg: RequestMsg = {
+			role: "user",
+			content: p.user?.input || "",
+		};
+
+		messages.push(input_msg);
 	}
-
-	const input_msg: RequestMsg = {
-		role: "user",
-		content: payload.user?.input || "",
-	};
-
-	messages.push(input_msg);
 
 	return messages;
 }

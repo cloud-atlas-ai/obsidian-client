@@ -1,5 +1,5 @@
 import WordExtractor from "word-extractor";
-import { AdditionalContext, Payload, User } from "./interfaces";
+import { AdditionalContext, CaRequestMsg, Payload, User } from "./interfaces";
 import {
 	App,
 	LinkCache,
@@ -59,13 +59,13 @@ export function combinePayloads(
 		return base;
 	}
 	const additional_context: AdditionalContext = {};
-	Object.assign(additional_context, base.user.additional_context);
-	Object.assign(additional_context, override.user.additional_context);
+	Object.assign(additional_context, base.messages[base.messages.length - 1].user.additional_context);
+	Object.assign(additional_context, override.messages[override.messages.length - 1].user.additional_context);
 
-	const input = joinStrings(base.user.input, override.user.input);
+	const input = joinStrings(base.messages[base.messages.length - 1].user.input, override.messages[override.messages.length - 1].user.input);
 	const user_prompt = joinStrings(
-		base.user.user_prompt,
-		override.user.user_prompt
+		base.messages[base.messages.length - 1].user.user_prompt,
+		override.messages[override.messages.length - 1].user.user_prompt
 	);
 
 	const user: User = {
@@ -74,9 +74,15 @@ export function combinePayloads(
 		additional_context,
 	};
 
-	return {
+	const caRequestMsg: CaRequestMsg = {
 		user,
-		system: override.system || base.system,
+		system: override.messages[override.messages.length - 1].system || base.messages[base.messages.length - 1].system,
+		assistant: override.messages[override.messages.length - 1].assistant || base.messages[base.messages.length - 1].assistant,
+		
+	};
+
+	return {
+		messages: [caRequestMsg],
 		options: override.options || base.options,
 		provider: override.provider || base.provider,
 		llmOptions: override.llmOptions || base.llmOptions,
@@ -206,4 +212,70 @@ export async function insertPayload(
 		}),
 		method: "POST",
 	});
+}
+
+/**
+ * Fetches content from a URL if it's a text-based format
+ */
+export async function fetchUrlContent(url: string): Promise<string | null> {
+  try {
+    const response = await fetch(url);
+    if (!response.ok) {
+      console.error(`Failed to fetch URL: ${url}, status: ${response.status}`);
+      return null;
+    }
+    
+    const contentType = response.headers.get('content-type') || '';
+    
+    // Only process text-based formats
+    if (contentType.includes('text/') || 
+        contentType.includes('application/json') ||
+        contentType.includes('application/xml') ||
+        contentType.includes('application/javascript')) {
+      
+      if (contentType.includes('text/html')) {
+        const text = await response.text();
+        // Basic HTML to text conversion
+        return text
+          .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+          .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+          .replace(/<[^>]*>/g, '')
+          .replace(/\s+/g, ' ')
+          .trim();
+      } 
+      else {
+        return await response.text();
+      }
+    } else {
+      console.log(`Skipping non-text URL: ${url} (${contentType})`);
+      return null;
+    }
+  } catch (e) {
+    console.error(`Error fetching URL: ${url}`, e);
+    return null;
+  }
+}
+
+/**
+ * Extracts links from a dedicated "links" section in markdown
+ */
+export function extractLinksFromContent(content: string): string[] {
+  const links: string[] = [];
+  
+  // Find all markdown links [title](url)
+  const markdownLinkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
+  let match;
+  while ((match = markdownLinkRegex.exec(content)) !== null) {
+    if (match[2].startsWith('http://') || match[2].startsWith('https://')) {
+      links.push(match[2]); // URL is in capture group 2
+    }
+  }
+  
+  // Find all bare URLs
+  const bareLinkRegex = /(?:^|\s)(https?:\/\/[^\s)]+)/g;
+  while ((match = bareLinkRegex.exec(content)) !== null) {
+    links.push(match[1]); // URL is in capture group 1
+  }
+  
+  return links;
 }

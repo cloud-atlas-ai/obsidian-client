@@ -36,6 +36,9 @@ import {
 	PayloadConfig,
 	LlmOptions,
 	ResponseRow,
+	AutoProcessingConfig,
+	CaRequestMsg,
+	FlowResponse,
 } from "./interfaces";
 import { v4 as uuidv4 } from "uuid";
 import {
@@ -52,6 +55,8 @@ import {
 	isFlow,
 	isCanvasFlow,
 	insertPayload,
+	extractLinksFromContent,
+	fetchUrlContent,
 } from "./utils";
 import {
 	CloudAtlasGlobalSettingsTab,
@@ -97,6 +102,10 @@ export default class CloudAtlasPlugin extends Plugin {
 		return normalizePath(`CloudAtlas/${flow}.flow.md`);
 	};
 
+	getCapabilityFlowFilePath = (flow: string) => {
+		return normalizePath(`CloudAtlas/capabilities/${flow}.flow.md`);
+	};
+
 	getFlowdataFilePath = (flow: string) => {
 		return normalizePath(`CloudAtlas/${flow}.flowdata.md`);
 	};
@@ -104,9 +113,15 @@ export default class CloudAtlasPlugin extends Plugin {
 	collectInputsIntoPayload = async (
 		input: string | null,
 		inputFlowFile: TFile,
-		flow: string
-	): Promise<Payload | null> => {
-		const templateFlowFilePath = this.getFlowFilePath(flow);
+		flow: string,
+		isCapability: boolean = false
+	): Promise<PayloadConfig | null> => {
+		let templateFlowFilePath;
+		if (isCapability) {
+			templateFlowFilePath = this.getCapabilityFlowFilePath(flow);
+		} else {
+			templateFlowFilePath = this.getFlowFilePath(flow);
+		}
 		const dataFlowFilePath = this.getFlowdataFilePath(flow);
 
 		const flows = [
@@ -115,30 +130,38 @@ export default class CloudAtlasPlugin extends Plugin {
 			inputFlowFile.path,
 		];
 
-		const payload = await this.combineFlows(flows, input);
+		const payloadConfig = await this.combineFlows(flows, input);
 
-		return payload;
+		return payloadConfig;
 	};
 
 	combineFlows = async (
 		paths: string[],
 		input: string | null
-	): Promise<Payload | null> => {
+	): Promise<PayloadConfig | null> => {
 		const uniquePaths = [...new Set(paths)];
+		const user = { input, user_prompt: null };
+		const caRequestMsg: CaRequestMsg = {
+			user,
+			system: null,
+			assistant: null,
+		};
 		const payloadConfig: PayloadConfig = {
 			payload: {
-				user: { input, user_prompt: null },
-				system: null,
+				messages: [caRequestMsg],
 				options: {
 					generate_embeddings: this.settings.generateEmbeddings,
 					entity_recognition: this.settings.entityRecognition,
 					wikify: this.settings.wikify,
 				},
-				provider: this.settings.useOpenAi
+				provider: this.settings.autoModel
+					? "auto"
+					: this.settings.useOpenAi
 					? "openai"
 					: this.settings.useVertexAi
 					? "vertexai"
 					: "azureai",
+				model: null,
 				llmOptions: {
 					temperature: this.settings.llmOptions.temperature,
 					max_tokens: this.settings.llmOptions.max_tokens,
@@ -151,6 +174,7 @@ export default class CloudAtlasPlugin extends Plugin {
 				mode: null,
 				resolveBacklinks: true,
 				resolveForwardLinks: true,
+				expandUrls: true,
 				exclusionPatterns: [],
 				frontMatterOffset: 0,
 				llmOptions: {
@@ -158,6 +182,8 @@ export default class CloudAtlasPlugin extends Plugin {
 					max_tokens: this.settings.llmOptions.max_tokens,
 				},
 				additional_context: {},
+				model: null,
+				can_delegate: false,
 			},
 		};
 
@@ -183,7 +209,7 @@ export default class CloudAtlasPlugin extends Plugin {
 			index++;
 		}
 
-		return payloadConfig.payload;
+		return payloadConfig;
 	};
 
 	pathToPayload = async (
@@ -196,6 +222,7 @@ export default class CloudAtlasPlugin extends Plugin {
 
 		try {
 			const flowConfig = await this.flowConfigFromPath(filePath);
+			console.log(flowConfig);
 			const flowFile = getFileByPath(filePath, this.app);
 
 			// Inherit booleans unless specifically defined.
@@ -208,12 +235,34 @@ export default class CloudAtlasPlugin extends Plugin {
 					flowConfig.resolveBacklinks =
 						previousConfig.resolveBacklinks;
 				}
+				if (flowConfig?.expandUrls === undefined) {
+					flowConfig.expandUrls = previousConfig.expandUrls;
+				}
+				// Inherit model if not defined
+				if (flowConfig?.model === undefined) {
+					flowConfig.model = previousConfig.model;
+				}
+				if (flowConfig?.can_delegate === undefined) {
+					flowConfig.can_delegate = previousConfig.can_delegate;
+				}
 			}
 
 			let flowContent = await this.app.vault.read(flowFile);
 			flowContent = flowContent
 				.substring(flowConfig.frontMatterOffset)
 				.trim();
+
+			// Check if the flow content contains the capabilities shortcut and expand it in memory
+			if (flowContent.includes("{{ca-capabilities}}")) {
+				console.debug(
+					"Found capabilities shortcut in flow, expanding in memory"
+				);
+				const capabilitiesList = await this.getCapabilitiesList();
+				flowContent = flowContent.replace(
+					"{{ca-capabilities}}",
+					capabilitiesList
+				);
+			}
 
 			// This should happen only on the last step of the stack
 			let input;
@@ -259,11 +308,26 @@ export default class CloudAtlasPlugin extends Plugin {
 				Object.assign(additionalContext, resolvedBacklinks);
 			}
 
+			if (flowConfig.expandUrls) {
+				const urls = extractLinksFromContent(flowContent);
+				for (const url of urls) {
+					const content = await fetchUrlContent(url);
+					if (content) {
+						additionalContext[url] = content;
+					}
+				}
+			}
+
 			user.additional_context = additionalContext;
 
-			const data = {
+			const caRequestMsg: CaRequestMsg = {
 				user,
+				assistant: null,
 				system: flowConfig.system_instructions,
+			};
+			const data = {
+				messages: [caRequestMsg],
+				model: flowConfig.model || previousPayload.model,
 				options: {
 					entity_recognition:
 						previousPayload.options.entity_recognition,
@@ -271,6 +335,7 @@ export default class CloudAtlasPlugin extends Plugin {
 						previousPayload.options.generate_embeddings,
 					wikify: previousPayload.options.wikify,
 				},
+				// Use the model to set the provider if available
 				provider: previousPayload.provider,
 				llmOptions: {
 					temperature:
@@ -325,10 +390,13 @@ export default class CloudAtlasPlugin extends Plugin {
 			mode: metadata?.frontmatter?.mode,
 			resolveBacklinks: metadata?.frontmatter?.resolveBacklinks,
 			resolveForwardLinks: metadata?.frontmatter?.resolveForwardLinks,
+			expandUrls: metadata?.frontmatter?.expandUrls,
 			exclusionPatterns: metadata?.frontmatter?.exclusionPatterns || [],
 			frontMatterOffset: metadata?.frontmatterPosition?.end?.offset || 0,
 			llmOptions,
 			additional_context: additionalContext,
+			model: metadata?.frontmatter?.model,
+			can_delegate: metadata?.frontmatter?.can_delegate,
 		};
 	};
 
@@ -336,15 +404,65 @@ export default class CloudAtlasPlugin extends Plugin {
 		return patterns.map((pattern) => new RegExp(pattern));
 	};
 
-	flowToResponse = async (path: TFile, flow: string): Promise<string> => {
-		const payload = await this.collectInputsIntoPayload(null, path, flow);
+	flowToResponse = async (
+		path: TFile,
+		flow: string,
+		isCapability: boolean = false,
+		override_model?: string | null
+	): Promise<FlowResponse> => {
+		const payloadConfig = await this.collectInputsIntoPayload(
+			null,
+			path,
+			flow
+		);
 
-		if (!payload) {
+		if (!payloadConfig?.payload) {
 			throw new Error("Could not construct payload!");
 		}
 
-		const respJson = await this.apiFetch(payload);
-		return respJson;
+		payloadConfig.payload.model =
+			override_model || payloadConfig.config.model;
+
+		let respJson = await this.apiFetch(payloadConfig.payload);
+
+		console.log(payloadConfig.config);
+
+		if (payloadConfig.config.can_delegate) {
+			// Save the response to a temporary file for debugging or reference
+			const flows: string[] = JSON.parse(respJson);
+			for (let i = 0; i < flows.length; i++) {
+				const flow = flows[i];
+				if (i === 0) {
+					// this is the first post delegation flow, it needs to run on the original file
+					respJson = (await this.flowToResponse(path, flow)).response;
+				} else {
+					try {
+						const tempFilePath = `CloudAtlas/temp/${payloadConfig.payload.requestId}_response.json`;
+						await this.createFolder("CloudAtlas/temp");
+						await this.app.vault.create(tempFilePath, respJson);
+						console.log(`Saved response to ${tempFilePath}`);
+						respJson = (
+							await this.flowToResponse(
+								await getFileByPath(tempFilePath, this.app),
+								flow,
+								true
+							)
+						).response;
+					} catch (error) {
+						console.error(
+							"Failed to save response to temp file:",
+							error
+						);
+					}
+				}
+			}
+		}
+
+		return {
+			response: respJson,
+			config: payloadConfig.config,
+			payload: payloadConfig.payload,
+		};
 	};
 
 	deployFlow = async (flow: string): Promise<string> => {
@@ -379,15 +497,15 @@ export default class CloudAtlasPlugin extends Plugin {
 
 		const flows = [templateFlowFilePath, dataFlowFilePath].filter(Boolean);
 
-		const payload = await this.combineFlows(flows, null);
+		const payloadConfig = await this.combineFlows(flows, null);
 
-		console.log(payload);
+		console.log(payloadConfig);
 
-		if (payload) {
+		if (payloadConfig?.payload) {
 			const flowResponse = await insertPayload(
 				this.settings.apiKey,
 				flow,
-				payload
+				payloadConfig.payload
 			);
 
 			console.debug("Payload insert: ", flowResponse.status);
@@ -407,37 +525,89 @@ export default class CloudAtlasPlugin extends Plugin {
 		const input = editor?.getSelection();
 		const fromSelection = Boolean(input);
 
-		if (editor) {
-			if (fromSelection) {
-				editor.replaceSelection(
-					input + "\n\n---\n\n" + PLACEHOLDER + "\n\n---\n"
-				);
-			} else {
-				// Create the placeholder content to be inserted
-				const curCursor = editor.getCursor();
-				const placeholderContent =
-					"\n---\n\n" + PLACEHOLDER + "\n\n---\n";
+		// If we're not creating a new file, add the placeholder to the current file
+		if (!this.settings.createNewFile) {
+			if (editor) {
+				if (fromSelection) {
+					editor.replaceSelection(
+						input + "\n\n---\n\n" + PLACEHOLDER + "\n\n---\n"
+					);
+				} else {
+					// Create the placeholder content to be inserted
+					const curCursor = editor.getCursor();
+					const placeholderContent =
+						"\n---\n\n" + PLACEHOLDER + "\n\n---\n";
 
-				// Insert the placeholder content at the cursor position
-				editor.replaceRange(placeholderContent, curCursor);
+					// Insert the placeholder content at the cursor position
+					editor.replaceRange(placeholderContent, curCursor);
+				}
+			} else {
+				const current = await this.app.vault.read(inputFlowFile);
+				const output = current + "\n---\n" + PLACEHOLDER + "\n\n---\n";
+				await this.app.vault.modify(inputFlowFile, output);
 			}
-		} else {
-			const current = await this.app.vault.read(inputFlowFile);
-			const output = current + "\n---\n" + PLACEHOLDER + "\n\n---\n";
-			await this.app.vault.modify(inputFlowFile, output);
 		}
 
 		const notice = new Notice(`Running ${flow} flow ...`, 0);
 		animateNotice(notice);
 
 		try {
-			const respJson = await this.flowToResponse(inputFlowFile, flow);
-			const currentNoteContents = await this.app.vault.read(
-				inputFlowFile
-			);
-			const output = currentNoteContents.replace(PLACEHOLDER, respJson);
+			const flowResponse = await this.flowToResponse(inputFlowFile, flow);
 
-			this.app.vault.modify(inputFlowFile, output);
+			if (this.settings.createNewFile) {
+				// Generate a filename using the template
+				const outputFileName = this.generateFlowOutputFilename(
+					inputFlowFile,
+					flow,
+					flowResponse.payload.model || "unknown"
+				);
+				const folderPath = inputFlowFile.parent?.path || "";
+				const outputPath = normalizePath(
+					`${folderPath}/${outputFileName}`
+				);
+
+				// Create content with original selection (if any) and response
+				let content = "";
+
+				// Add metadata with link to source
+				const timestamp = new Date().toISOString();
+				content += `---
+source: "[[${inputFlowFile.path}|${inputFlowFile.basename}]]"
+flow: "${flow}"
+created: "${timestamp}"
+model: "${flowResponse.payload.model || "unknown"}"
+---
+
+`;
+
+				content += `\n\n${flowResponse.response}\n\n`;
+
+				console.log("Output path", outputPath);
+
+				try {
+					await this.app.vault.create(outputPath, content);
+					// Open the new file
+					const newFile = getFileByPath(outputPath, this.app);
+					if (newFile) {
+						this.app.workspace.getLeaf().openFile(newFile);
+					}
+				} catch (e) {
+					console.error("Failed to create output file:", e);
+					new Notice(
+						"Failed to create output file. Check console for details."
+					);
+				}
+			} else {
+				// Original behavior: replace placeholder in the current file
+				const currentNoteContents = await this.app.vault.read(
+					inputFlowFile
+				);
+				const output = currentNoteContents.replace(
+					PLACEHOLDER,
+					flowResponse.response
+				);
+				this.app.vault.modify(inputFlowFile, output);
+			}
 		} catch (e) {
 			console.error(e);
 			notice.hide();
@@ -445,6 +615,28 @@ export default class CloudAtlasPlugin extends Plugin {
 		}
 		notice.hide();
 		clearTimeout(noticeTimeout);
+	};
+
+	// Generate a filename for flow output using the template
+	generateFlowOutputFilename = (
+		file: TFile,
+		flow: string,
+		model: string
+	): string => {
+		const basename = file.basename;
+		const template = this.settings.outputFileTemplate;
+
+		const timestamp = Math.floor(Date.now() / 1000);
+
+		// Generate the filename without extension
+		const filenameWithoutExt = template
+			.replace("${basename}", basename)
+			.replace("${flow}", flow)
+			.replace("${model}", model)
+			.replace("${timestamp}", timestamp.toString());
+
+		// Normalize the path to ensure it's valid
+		return normalizePath(filenameWithoutExt) + ".md";
 	};
 
 	readNote = async (filePath: string): Promise<string> => {
@@ -469,10 +661,12 @@ export default class CloudAtlasPlugin extends Plugin {
 				const flowrunPat = path.split(".");
 				const flowName = flowrunPat[flowrunPat.length - 3];
 				console.log(flowName);
-				return await this.flowToResponse(
-					getFileByPath(path, this.app),
-					flowName
-				);
+				return (
+					await this.flowToResponse(
+						getFileByPath(path, this.app),
+						flowName
+					)
+				).response;
 			}
 			if (isCanvasFlow(path)) {
 				return await this.canvasOps(getFileByPath(path, this.app));
@@ -690,6 +884,8 @@ export default class CloudAtlasPlugin extends Plugin {
 				}
 			}
 
+			// console.log("respJsonS: ", respJsonS);
+
 			return respJsonS[0].response;
 		}
 	};
@@ -742,7 +938,7 @@ export default class CloudAtlasPlugin extends Plugin {
 		}
 
 		const batch = Object.keys(
-			data.payload.user.additional_context as object
+			data.payload.messages[0].user?.additional_context as object
 		).filter((key) => key.endsWith(".index.md"));
 		const payloadsQueue = [];
 		if (batch.length == 1) {
@@ -895,16 +1091,24 @@ export default class CloudAtlasPlugin extends Plugin {
 			additional_context,
 		};
 
+		const caRequestMsg: CaRequestMsg = {
+			user,
+			system: system_instructions.join("\n"),
+			assistant: null,
+		};
+
 		return {
 			payload: {
-				user: user,
-				system: system_instructions.join("\n"),
+				messages: [caRequestMsg],
+				model: null,
 				options: {
 					entity_recognition: this.settings.entityRecognition,
 					generate_embeddings: this.settings.generateEmbeddings,
 					wikify: this.settings.wikify,
 				},
-				provider: this.settings.useOpenAi
+				provider: this.settings.autoModel
+					? "auto"
+					: this.settings.useOpenAi
 					? "openai"
 					: this.settings.useVertexAi
 					? "vertexai"
@@ -1068,6 +1272,16 @@ export default class CloudAtlasPlugin extends Plugin {
 		} catch (e) {
 			console.debug("Could not create folder, it likely already exists");
 		}
+
+		try {
+			// Create the capabilities folder if it doesn't exist
+			await this.createFolder("CloudAtlas/capabilities");
+		} catch (e) {
+			console.debug(
+				"Could not create capabilities folder, it likely already exists"
+			);
+		}
+
 		console.debug("Bootstraped CloudAtlas folder");
 
 		this.addCommand({
@@ -1080,6 +1294,27 @@ export default class CloudAtlasPlugin extends Plugin {
 					exampleFlowString
 				);
 				this.app.vault.create(`CloudAtlas/${name}.flowdata.md`, "");
+			},
+		});
+
+		this.addCommand({
+			id: `create-capability-flow`,
+			name: `Create new capability flow`,
+			callback: async () => {
+				// Create capabilities folder if it doesn't exist
+				await this.createFolder("CloudAtlas/capabilities");
+
+				// Generate a random name for the flow
+				const name = randomName();
+
+				// Create the flow file
+				await this.app.vault.create(
+					`CloudAtlas/capabilities/${name}.flow.md`,
+					exampleFlowString
+				);
+
+				// Show a notice
+				new Notice(`Created capability flow: ${name}`);
 			},
 		});
 
@@ -1102,12 +1337,51 @@ export default class CloudAtlasPlugin extends Plugin {
 			},
 		});
 
+		this.addCommand({
+			id: "setup-auto-processing",
+			name: "Setup Auto-Processing in Current Folder",
+			checkCallback: (checking: boolean) => {
+				// Get current folder
+				const activeFile = this.app.workspace.getActiveFile();
+				if (!activeFile) return false;
+
+				// Get folder path
+				const folderPath = activeFile.parent?.path;
+				if (!folderPath) return false;
+
+				if (!checking) {
+					this.setupAutoProcessing(folderPath);
+				}
+				return true;
+			},
+		});
+
 		this.registerView(CA_VIEW_TYPE, (leaf) => new FlowView(leaf, this));
 		this.registerView(
 			INTERACTIVE_PANEL_TYPE,
 			(leaf) => new InteractivePanel(leaf, this)
 		);
 		this.addSettingTab(new CloudAtlasGlobalSettingsTab(this.app, this));
+
+		this.registerEvent(
+			this.app.vault.on("create", (file) => {
+				console.log("Creating file:", file.path);
+				if (!(file instanceof TFile)) return;
+
+				// Process any new file (not just those in "sources" folders)
+				this.processNewFile(file);
+			})
+		);
+
+		this.registerEvent(
+			this.app.vault.on("rename", (file, oldPath) => {
+				console.log("Moving/renaming file:", oldPath, "to", file.path);
+				if (!(file instanceof TFile)) return;
+
+				// Process the file if it's moved to a new location
+				this.processNewFile(file);
+			})
+		);
 	}
 
 	updateFlowCanvasClass(file: TFile | null) {
@@ -1145,17 +1419,17 @@ export default class CloudAtlasPlugin extends Plugin {
 				if (!inputFlowFile) {
 					return null;
 				}
-				const payload = await this.collectInputsIntoPayload(
+				const payloadConfig = await this.collectInputsIntoPayload(
 					input,
 					inputFlowFile,
 					flow
 				);
 
-				if (!payload) {
+				if (!payloadConfig?.payload) {
 					throw new Error("Could not construct payload!");
 				}
 
-				const canvasContent = payloadToGraph(payload);
+				const canvasContent = payloadToGraph(payloadConfig.payload);
 
 				const canvasFilePath = `CloudAtlas/${flow}.flow.canvas`;
 				const canvasFile = await getFileByPath(
@@ -1190,5 +1464,188 @@ export default class CloudAtlasPlugin extends Plugin {
 
 	async saveSettings() {
 		await this.saveData(this.settings);
+	}
+
+	async processNewFile(file: TFile) {
+		// Skip processing if auto-processing is disabled globally
+		if (!this.settings.autoProcessing.enabled) return;
+
+		// Skip processing configuration files themselves
+		if (file.basename === "_cloudatlas") return;
+
+		// Get the folder path
+		const folderPath = file.parent?.path || "";
+
+		// Look for configuration in the folder
+		const config = await this.getAutoProcessingConfig(folderPath);
+		if (!config || !config.enabled) return;
+
+		// Show processing notice
+		const notice = new Notice(
+			`Processing ${file.basename} with ${config.flow} flow...`,
+			0
+		);
+		animateNotice(notice);
+
+		try {
+			// Process file with the specified flow
+			console.log(`Processing with flow: ${config.flow}`);
+			const result = await this.flowToResponse(
+				file,
+				config.flow,
+				false,
+				config.model
+			);
+
+			// Add source file link to the result
+			const sourceLink = `\n\n---\nSource: [[${file.path}|${file.basename}]]`;
+			const resultWithSourceLink = result + sourceLink;
+
+			// Generate and save output file
+			const outputFilename = this.generateFlowOutputFilename(
+				file,
+				config.outputNameTemplate,
+				result.payload.model || "unknown"
+			);
+			const outputPath = normalizePath(`${folderPath}/${outputFilename}`);
+			try {
+				const existingFile = getFileByPath(outputPath, this.app);
+				if (existingFile) {
+					console.log("Modifying file:", outputPath);
+					await this.app.vault.modify(
+						existingFile,
+						resultWithSourceLink
+					);
+				} else {
+					console.log("Creating file:", outputPath);
+					await this.app.vault.create(
+						outputPath,
+						resultWithSourceLink
+					);
+				}
+			} catch (e) {
+				await this.app.vault.create(outputPath, resultWithSourceLink);
+			}
+
+			// Success notice
+			notice.hide();
+			clearTimeout(noticeTimeout);
+			new Notice(`Processing complete: ${outputFilename}`);
+		} catch (e) {
+			// Error handling
+			notice.hide();
+			clearTimeout(noticeTimeout);
+			console.error("Auto-processing failed:", e);
+			new Notice(
+				`Failed to process ${file.basename}. See console for details.`
+			);
+		}
+	}
+
+	async getAutoProcessingConfig(
+		folderPath: string
+	): Promise<AutoProcessingConfig | null> {
+		// Try _cloudatlas.md first, then fall back to _autoprocess.md
+		const configPaths = [`${folderPath}/_cloudatlas.md`];
+
+		for (const configPath of configPaths) {
+			try {
+				const configFile = getFileByPath(configPath, this.app);
+				if (!configFile) continue;
+
+				const metadata =
+					this.app.metadataCache.getFileCache(configFile);
+
+				if (metadata?.frontmatter) {
+					return {
+						enabled: metadata.frontmatter.enabled ?? true,
+						flow:
+							metadata.frontmatter.flow ??
+							this.settings.autoProcessing.defaultFlow,
+						model: metadata.frontmatter.model,
+						outputNameTemplate:
+							metadata.frontmatter.outputNameTemplate ??
+							"${basename}-processed",
+						expandUrls: metadata.frontmatter.expandUrls ?? false,
+					};
+				}
+			} catch (e) {
+				// Config file doesn't exist or can't be read
+				continue;
+			}
+		}
+
+		return null;
+	}
+
+	async setupAutoProcessing(folderPath: string) {
+		// Create configuration file
+		const configContent = `---
+enabled: true
+flow: ${this.settings.autoProcessing.defaultFlow || "example"}
+model: o3-mini
+outputNameTemplate: \${basename}-processed
+
+---
+
+# CloudAtlas Auto-Processing Configuration
+
+This file configures automatic processing for files added to this folder.
+
+- **enabled**: Set to true to enable auto-processing, false to disable
+- **flow**: The flow to use for processing
+- **outputNameTemplate**: Template for naming output files. \${basename} will be replaced with the input file name
+`;
+
+		const configPath = `${folderPath}/_cloudatlas.md`;
+		try {
+			await this.app.vault.create(configPath, configContent);
+			new Notice(`Auto-processing setup complete in ${folderPath}`);
+		} catch (e) {
+			console.error("Failed to create auto-processing config:", e);
+			new Notice(
+				"Failed to setup auto-processing. See console for details."
+			);
+		}
+	}
+
+	/**
+	 * Lists all .flow files in the capabilities folder and formats them as a markdown list
+	 */
+	async getCapabilitiesList(): Promise<string> {
+		try {
+			// Get all files in the vault
+			const vaultFiles = this.app.vault.getMarkdownFiles();
+
+			// Filter for .flow.md files in the capabilities folder
+			const capabilityFlows = vaultFiles
+				.filter(
+					(file) =>
+						file.path.startsWith("CloudAtlas/capabilities/") &&
+						file.path.endsWith(".flow.md")
+				)
+				.map((f) => {
+					// Extract flow name from path
+					const flowName =
+						f.path.split("/").pop()?.split(".flow.md")[0] || "";
+					return flowName;
+				})
+				.sort();
+
+			// Format as a markdown list
+			if (capabilityFlows.length === 0) {
+				return "No capability flows found in CloudAtlas/capabilities folder.";
+			}
+
+			let result = "**Available Capabilities:**\n\n";
+			capabilityFlows.forEach((flow) => {
+				result += `- ${flow}\n`;
+			});
+
+			return result;
+		} catch (e) {
+			console.error("Error getting capabilities list:", e);
+			return "Error listing capabilities.";
+		}
 	}
 }

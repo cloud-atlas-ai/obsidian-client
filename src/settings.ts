@@ -25,6 +25,18 @@ export interface CloudAtlasPluginSettings {
 	azureAiSettings: AzureAiSettings;
 	provider: string;
 	registeredFlows: string[];
+	autoProcessing: {
+		enabled: boolean;
+		defaultFlow: string;
+	};
+	interactivePanel: {
+		resolveLinks: boolean;
+		resolveBacklinks: boolean;
+		expandUrls: boolean;
+	};
+	createNewFile: boolean;
+	outputFileTemplate: string;
+	autoModel: boolean;
 }
 
 export class CloudAtlasGlobalSettingsTab extends PluginSettingTab {
@@ -201,19 +213,15 @@ export class CloudAtlasGlobalSettingsTab extends PluginSettingTab {
 				);
 
 			new Setting(containerEl)
-				.setName("Use OpenAI")
+				.setName("Use best model for the flow")
 				.setDesc(
-					"We use AzureAI by default, this will use OpenAI, models are identical, so there should not be a meaningful difference in results."
+					"Let Cloud Atlas choose the best model for each flow based on its requirements."
 				)
 				.addToggle((toggle) =>
 					toggle
-						.setValue(this.plugin.settings.useOpenAi)
+						.setValue(this.plugin.settings.autoModel || false)
 						.onChange(async (value) => {
-							this.plugin.settings.useOpenAi = value;
-							if (value === true) {
-								this.plugin.settings.useVertexAi = false;
-								this.display();
-							}
+							this.plugin.settings.autoModel = value;
 							await this.plugin.saveSettings();
 						})
 				);
@@ -252,41 +260,54 @@ export class CloudAtlasGlobalSettingsTab extends PluginSettingTab {
 			containerEl.createEl("h2", { text: "LLM" });
 
 			new Setting(containerEl)
-				.setName("LLM temperature")
-				.setDesc(
-					'Set default temperature for the LLM, the higher the temperature the more "creative" the LLM will be, default is usually around 0.8.'
-				)
-				.addText((text) =>
-					text
-						.setValue(
-							this.plugin.settings.llmOptions.temperature?.toString() ||
-								"0.8"
-						)
-						.onChange(async (value) => {
-							this.plugin.settings.llmOptions.temperature =
-								Number(value);
-							await this.plugin.saveSettings();
-						})
-				);
-
-			new Setting(containerEl)
 				.setName("LLM max response tokens")
 				.setDesc(
-					"Set maximum tokens returned in the response, defaults to 2000, and maximum is 4096."
+					"Set maximum tokens returned in the response, defaults to 2000, and maximum is 200000."
 				)
 				.addText((text) =>
 					text
 						.setValue(
 							this.plugin.settings.llmOptions.max_tokens?.toString() ||
-								"2000"
+								"5000"
 						)
 						.onChange(async (value) => {
 							const v =
-								Number(value) > 4096 ? 4096 : Number(value);
+								Number(value) > 200000 ? 200000 : Number(value);
 							this.plugin.settings.llmOptions.max_tokens = v;
 							await this.plugin.saveSettings();
 						})
 				);
+
+			// Add new settings for flow response handling
+			containerEl.createEl("h2", { text: "Flow Response Handling" });
+			
+			new Setting(containerEl)
+				.setName("Create new file for responses")
+				.setDesc("Create a new file for each flow response instead of appending to the current file")
+				.addToggle((toggle) =>
+					toggle
+						.setValue(this.plugin.settings.createNewFile || false)
+						.onChange(async (value) => {
+							this.plugin.settings.createNewFile = value;
+							await this.plugin.saveSettings();
+							this.display();
+						})
+				);
+			
+			// Only show output file template if createNewFile is enabled
+			if (this.plugin.settings.createNewFile) {
+				new Setting(containerEl)
+					.setName("Output file template")
+					.setDesc("Template for naming output files. Available variables: ${flow} ${model} ${basename} (current file name), ${timestamp} (Unix timestamp for better sorting)")
+					.addText((text) =>
+						text
+							.setValue(this.plugin.settings.outputFileTemplate || "${model}-${flow}-${basename}-${timestamp}")
+							.onChange(async (value) => {
+								this.plugin.settings.outputFileTemplate = value;
+								await this.plugin.saveSettings();
+							})
+					);
+			}
 
 			if (this.plugin.settings.provider === "cloudatlas") {
 				new Setting(containerEl)
@@ -305,6 +326,7 @@ export class CloudAtlasGlobalSettingsTab extends PluginSettingTab {
 								await this.plugin.saveSettings();
 							})
 					);
+				
 				containerEl.createEl("h2", { text: "Canvas flows" });
 
 				new Setting(containerEl)
@@ -350,6 +372,82 @@ export class CloudAtlasGlobalSettingsTab extends PluginSettingTab {
 								await this.plugin.saveSettings();
 							})
 					);
+
+				// Interactive Panel Settings
+				containerEl.createEl("h2", { text: "Interactive Panel" });
+
+				new Setting(containerEl)
+					.setName("Resolve links")
+					.setDesc(
+						"Add linked notes as additional context in interactive panel"
+					)
+					.addToggle((toggle) =>
+						toggle
+							.setValue(
+								this.plugin.settings.interactivePanel
+									.resolveLinks
+							)
+							.onChange(async (value) => {
+								this.plugin.settings.interactivePanel.resolveLinks =
+									value;
+								await this.plugin.saveSettings();
+							})
+					);
+
+				new Setting(containerEl)
+					.setName("Resolve backlinks")
+					.setDesc(
+						"Add backlinks as additional context in interactive panel"
+					)
+					.addToggle((toggle) =>
+						toggle
+							.setValue(
+								this.plugin.settings.interactivePanel
+									.resolveBacklinks
+							)
+							.onChange(async (value) => {
+								this.plugin.settings.interactivePanel.resolveBacklinks =
+									value;
+								await this.plugin.saveSettings();
+							})
+					);
+
+				new Setting(containerEl)
+					.setName("Expand URLs")
+					.setDesc(
+						"Fetch and include content from URLs found in notes and prompt"
+					)
+					.addToggle((toggle) =>
+						toggle
+							.setValue(
+								this.plugin.settings.interactivePanel.expandUrls
+							)
+							.onChange(async (value) => {
+								this.plugin.settings.interactivePanel.expandUrls =
+									value;
+								await this.plugin.saveSettings();
+							})
+					);
+
+				containerEl.createEl("h2", { text: "Auto-Processing" });
+
+				new Setting(containerEl)
+					.setName("Enable Auto-Processing")
+					.setDesc(
+						"Automatically process files added to 'sources' subfolders"
+					)
+					.addToggle((toggle) =>
+						toggle
+							.setValue(
+								this.plugin.settings.autoProcessing.enabled
+							)
+							.onChange(async (value) => {
+								this.plugin.settings.autoProcessing.enabled =
+									value;
+								await this.plugin.saveSettings();
+							})
+					);
+
 				containerEl.createEl("h2", { text: "Register commands" });
 				const vaultFiles = this.app.vault.getMarkdownFiles();
 				const cloudAtlasFlows = vaultFiles.filter(

@@ -28,6 +28,7 @@ button.cloud-atlas-flow-btn-primary {
 	background-color: var(--text-accent);
 	color: var(--background-primary);
 	padding: var(--size-4-2);
+	margin: var(--size-4-1);
 	border-radius: var(--size-4-4);
 	cursor: pointer;
 	height: var(--size-4-8);
@@ -219,17 +220,6 @@ table.cloud-atlas-flow-table td.cloud-atlas-flow-td-quarter {
   padding: 5px 10px;
   border-radius: 3px;
   cursor: pointer;
-}
-
-.ca-attach-note-button {
-  background-color: var(--interactive-accent);
-  border: none;
-  padding: 5px 10px;
-  border-radius: 3px;
-  cursor: pointer;
-  &:hover::before {
-    content: "Add current note to the prompt ";
-  }
 }
 
 .ca-interactive-prompt-textbox {

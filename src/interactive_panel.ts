@@ -1,4 +1,4 @@
-import { ItemView, Notice, WorkspaceLeaf, setIcon } from "obsidian";
+import { ItemView, Notice, WorkspaceLeaf, setIcon, setTooltip } from "obsidian";
 import CloudAtlasPlugin from "./main";
 
 import { CaRequestMsg, Payload, User } from "./interfaces";
@@ -241,6 +241,7 @@ export class InteractivePanel extends ItemView {
 					cls: "cloud-atlas-flow-btn-primary",
 				});
 				setIcon(removeButton, "trash-2");
+				setTooltip(removeButton, "Remove Note from Context");
 				removeButton.onClickEvent(() => {
 					this.attachedFiles.delete(file);
 					this.updateAttachedFilesList(filesList);
@@ -284,6 +285,7 @@ export class InteractivePanel extends ItemView {
 
 		// Make the attach button square and larger
 		setIcon(attachButton, "file-plus");
+		setTooltip(attachButton, "Attach Current Note to Context");
 		// Click listener for attaching the current note
 		attachButton.addEventListener("click", () => {
 			const activeFile = this.app.workspace.getActiveFile();
@@ -305,6 +307,7 @@ export class InteractivePanel extends ItemView {
 		});
 
 		setIcon(sendButton, "play");
+		setTooltip(sendButton, "Send to LLM");
 		// Make the send button square and larger so the text fits
 
 		sendButton.addEventListener("click", async () => {
@@ -321,12 +324,15 @@ export class InteractivePanel extends ItemView {
 			text: "New Interactive",
 		});
 
-		setIcon(newInteractiveButton, "plus");
+		setIcon(newInteractiveButton, "list-restart");
+		setTooltip(newInteractiveButton, "New Interactive Session");
 
 		newInteractiveButton.addEventListener("click", () => {
 			this.emptyAttachedFilesList(this.attachedFilesListEl);
 			this.history = [];
 			this.promptTextbox.value = "";
+			this.responseCode.innerText = "";
+			this.copyButton.hide();
 		});
 
 		// Keydown listener for Ctrl+Enter to submit the prompt
@@ -343,13 +349,24 @@ export class InteractivePanel extends ItemView {
 		this.updateAttachedFilesList(this.attachedFilesListEl);
 
 		// Response header and Copy button setup
-		const responseHeader = container.createEl("h4", { text: "Response" });
-		this.copyButton = container.createEl("button", {
-			text: "Copy to Clipboard",
-			cls: "ca-a-interactive-copy-button",
+		const responseHeaderContainer = container.createDiv({
+			cls: "response-header-container",
 		});
+		responseHeaderContainer.style.display = "flex";
+		responseHeaderContainer.style.justifyContent = "space-between";
+		responseHeaderContainer.style.alignItems = "center";
+		responseHeaderContainer.style.marginBottom = "8px";
+
+		responseHeaderContainer.createEl("h4", { text: "Response" });
+		this.copyButton = responseHeaderContainer.createEl("button", {
+			text: "Copy to Clipboard",
+			cls: "ca-a-interactive-copy-button cloud-atlas-flow-btn-primary",
+		});
+
+		setIcon(this.copyButton, "clipboard-copy");
+		setTooltip(this.copyButton, "Copy to Clipboard");
+
 		this.copyButton.hide();
-		responseHeader.insertAdjacentElement("afterend", this.copyButton);
 
 		this.copyButton.onClickEvent(() => {
 			if (this.responseCode) {

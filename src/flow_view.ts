@@ -1,4 +1,4 @@
-import { ItemView, Notice, WorkspaceLeaf, setIcon } from "obsidian";
+import { ItemView, Notice, WorkspaceLeaf, setIcon, setTooltip } from "obsidian";
 import CloudAtlasPlugin from "./main";
 
 export const CA_VIEW_TYPE = "flow-view";
@@ -56,6 +56,7 @@ export class FlowView extends ItemView {
 			const td2 = tr.createEl("td");
 			const runBtn = td2.createEl("button", { text: "Run" });
 			setIcon(runBtn, "play");
+			setTooltip(runBtn, "Run Flow");
 			runBtn.addClass("cloud-atlas-flow-btn-primary");
 			runBtn.addEventListener("click", async () => {
 				// console.debug(`Running flow ${flow}`);
@@ -64,6 +65,8 @@ export class FlowView extends ItemView {
 			// const uploadTd = tr.createEl("td");
 			const uploadBtn = td2.createEl("button", { text: "Upload" });
 			setIcon(uploadBtn, "upload");
+			setTooltip(uploadBtn, "Upload Flow");
+			uploadBtn.disabled = true;
 			uploadBtn.addClass("cloud-atlas-flow-btn-primary");
 			uploadBtn.addEventListener("click", async () => {
 				// console.debug(`Uploading flow ${flow}`);
@@ -71,6 +74,8 @@ export class FlowView extends ItemView {
 			});
 			const deployBtn = td2.createEl("button", { text: "Deploy" });
 			setIcon(deployBtn, "cloud-cog");
+			setTooltip(deployBtn, "Deploy Flow");
+			deployBtn.disabled = true;
 			deployBtn.addClass("cloud-atlas-flow-btn-primary");
 			deployBtn.addEventListener("click", async () => {
 				// console.debug(`Uploading flow ${flow}`);

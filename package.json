@@ -19,7 +19,7 @@
     "@types/uuid": "^9.0.8",
     "@types/word-extractor": "^1.0.5",
     "@typescript-eslint/eslint-plugin": "^8.5.0",
-    "@typescript-eslint/parser": "^7.12.0",
+    "@typescript-eslint/parser": "^8.26.0",
     "builtin-modules": "^4.0.0",
     "esbuild": "^0.25.0",
     "obsidian": "^1.5.7",

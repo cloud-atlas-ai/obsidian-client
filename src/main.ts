@@ -555,47 +555,16 @@ export default class CloudAtlasPlugin extends Plugin {
 			const flowResponse = await this.flowToResponse(inputFlowFile, flow);
 
 			if (this.settings.createNewFile) {
-				// Generate a filename using the template
-				const outputFileName = this.generateFlowOutputFilename(
+				// Use the unified method to create output file
+				const newFile = await this.createOutputFile(
 					inputFlowFile,
 					flow,
-					flowResponse.payload.model || "unknown"
+					flowResponse
 				);
-				const folderPath = inputFlowFile.parent?.path || "";
-				const outputPath = normalizePath(
-					`${folderPath}/${outputFileName}`
-				);
-
-				// Create content with original selection (if any) and response
-				let content = "";
-
-				// Add metadata with link to source
-				const timestamp = new Date().toISOString();
-				content += `---
-source: "[[${inputFlowFile.path}|${inputFlowFile.basename}]]"
-flow: "${flow}"
-created: "${timestamp}"
-model: "${flowResponse.payload.model || "unknown"}"
----
-
-`;
-
-				content += `\n\n${flowResponse.response}\n\n`;
-
-				console.log("Output path", outputPath);
-
-				try {
-					await this.app.vault.create(outputPath, content);
-					// Open the new file
-					const newFile = getFileByPath(outputPath, this.app);
-					if (newFile) {
-						this.app.workspace.getLeaf().openFile(newFile);
-					}
-				} catch (e) {
-					console.error("Failed to create output file:", e);
-					new Notice(
-						"Failed to create output file. Check console for details."
-					);
+				
+				// Open the new file if creation was successful
+				if (newFile) {
+					this.app.workspace.getLeaf().openFile(newFile);
 				}
 			} else {
 				// Original behavior: replace placeholder in the current file
@@ -617,23 +586,72 @@ model: "${flowResponse.payload.model || "unknown"}"
 		clearTimeout(noticeTimeout);
 	};
 
-	// Generate a filename for flow output using the template
+	// Helper function to consistently create output files across manual and auto-processing flows
+	createOutputFile = async (
+		inputFile: TFile,
+		flow: string,
+		flowResponse: FlowResponse,
+		customNameTemplate?: string
+	): Promise<TFile | null> => {
+		const folderPath = inputFile.parent?.path || "";
+		const timestamp = new Date().toISOString();
+		const unixTimestamp = Math.floor(Date.now() / 1000);
+		
+		// Use custom template if provided, otherwise use the setting template
+		const templateToUse = customNameTemplate || this.settings.outputFileTemplate;
+		
+		// Generate the output filename
+		const outputFileName = this.generateFlowOutputFilename(
+			inputFile,
+			flow,
+			flowResponse.payload.model || "unknown",
+			templateToUse,
+			unixTimestamp
+		);
+		
+		const outputPath = normalizePath(`${folderPath}/${outputFileName}`);
+		
+		// Create content with frontmatter
+		const content = `---
+source: "[[${inputFile.path}|${inputFile.basename}]]"
+flow: "${flow}"
+created: "${timestamp}"
+model: "${flowResponse.payload.model || "unknown"}"
+---
+
+${flowResponse.response}
+
+`;
+
+		console.log("Creating output file at:", outputPath);
+		
+		try {
+			await this.app.vault.create(outputPath, content);
+			return getFileByPath(outputPath, this.app);
+		} catch (e) {
+			console.error("Failed to create output file:", e);
+			new Notice("Failed to create output file. Check console for details.");
+			return null;
+		}
+	};
+
 	generateFlowOutputFilename = (
 		file: TFile,
 		flow: string,
-		model: string
+		model: string,
+		template?: string,
+		timestamp?: number
 	): string => {
 		const basename = file.basename;
-		const template = this.settings.outputFileTemplate;
-
-		const timestamp = Math.floor(Date.now() / 1000);
+		const actualTemplate = template || this.settings.outputFileTemplate;
+		const actualTimestamp = timestamp || Math.floor(Date.now() / 1000);
 
 		// Generate the filename without extension
-		const filenameWithoutExt = template
+		const filenameWithoutExt = actualTemplate
 			.replace("${basename}", basename)
 			.replace("${flow}", flow)
 			.replace("${model}", model)
-			.replace("${timestamp}", timestamp.toString());
+			.replace("${timestamp}", actualTimestamp.toString());
 
 		// Normalize the path to ensure it's valid
 		return normalizePath(filenameWithoutExt) + ".md";
@@ -1497,40 +1515,18 @@ model: "${flowResponse.payload.model || "unknown"}"
 				config.model
 			);
 
-			// Add source file link to the result
-			const sourceLink = `\n\n---\nSource: [[${file.path}|${file.basename}]]`;
-			const resultWithSourceLink = result + sourceLink;
-
-			// Generate and save output file
-			const outputFilename = this.generateFlowOutputFilename(
+			// Use the unified method to create output file with custom name template
+			await this.createOutputFile(
 				file,
-				config.outputNameTemplate,
-				result.payload.model || "unknown"
+				config.flow,
+				result,
+				config.outputNameTemplate
 			);
-			const outputPath = normalizePath(`${folderPath}/${outputFilename}`);
-			try {
-				const existingFile = getFileByPath(outputPath, this.app);
-				if (existingFile) {
-					console.log("Modifying file:", outputPath);
-					await this.app.vault.modify(
-						existingFile,
-						resultWithSourceLink
-					);
-				} else {
-					console.log("Creating file:", outputPath);
-					await this.app.vault.create(
-						outputPath,
-						resultWithSourceLink
-					);
-				}
-			} catch (e) {
-				await this.app.vault.create(outputPath, resultWithSourceLink);
-			}
 
 			// Success notice
 			notice.hide();
 			clearTimeout(noticeTimeout);
-			new Notice(`Processing complete: ${outputFilename}`);
+			new Notice(`Processing complete: ${file.basename}`);
 		} catch (e) {
 			// Error handling
 			notice.hide();
